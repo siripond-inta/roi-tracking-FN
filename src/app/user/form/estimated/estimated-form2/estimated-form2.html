@@ -1,0 +1,116 @@
+<div class="container py-5 min-vh-100" style="max-width: 1100px;">
+  <header class="mb-4">
+    <h2 class="fw-bold mb-1">{{ projectName }}</h2>
+    <p class="text-muted">Initial Budget: <span class="fw-bold text-dark">THB {{ initialBudget | number }}</span></p>
+  </header>
+
+  <!-- Progress Stepper: แสดงว่าตอนนี้อยู่ขั้นตอนไหน -->
+  <div class="d-flex align-items-center mb-5 bg-white p-3 rounded-4 shadow-sm" style="width: fit-content;">
+    <div class="d-flex align-items-center me-4">
+      <span class="badge bg-light text-muted rounded-circle p-2 me-2" style="width: 32px; height: 32px;">1</span>
+      <small class="text-muted">Project Info</small>
+    </div>
+    <div class="vr mx-3 text-muted opacity-25"></div>
+    <div class="d-flex align-items-center me-4">
+      <span class="badge bg-success rounded-circle p-2 me-2" style="width: 32px; height: 32px;">2</span>
+      <small class="fw-bold">Budget Planning</small>
+    </div>
+    <div class="vr mx-3 text-muted opacity-25"></div>
+    <div class="d-flex align-items-center">
+      <span class="badge bg-light text-muted rounded-circle p-2 me-2" style="width: 32px; height: 32px;">3</span>
+      <small class="text-muted">Review</small>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- คอลัมน์ซ้าย: ตาราง Budget Input -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+        <h5 class="fw-bold mb-4">Estimated Budget Allocation</h5>
+
+        <div class="row g-2 text-muted small fw-bold mb-2">
+          <div class="col-4">CATEGORY</div>
+          <div class="col-4">NOTE</div>
+          <div class="col-4">ESTIMATED AMOUNT (THB)</div>
+        </div>
+
+        <!-- *ngFor วน render ทุกแถวจาก budgetRows array ใน Component -->
+        <!-- [(ngModel)] เชื่อม input กับข้อมูลแบบ 2-way: พิมพ์แล้วค่าใน component เปลี่ยนทันที -->
+        <div class="d-flex flex-column gap-3 mb-4">
+          <div class="row g-2 align-items-center" *ngFor="let row of budgetRows; let i = index">
+            <div class="col-4">
+              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none" [(ngModel)]="row.category">
+                <option value="REV001">Revenue Generation</option>
+                <option value="CAT002">Development Cost (INV)</option>
+                <option value="CAT001">Operations Cost (OPC)</option>
+              </select>
+            </div>
+            <div class="col-4">
+              <input type="text" class="form-control bg-light border-0 rounded-pill px-3 shadow-none"
+                [(ngModel)]="row.note">
+            </div>
+            <div class="col-4 text-end">
+              <input type="number" class="form-control bg-light border-0 rounded-pill px-3 shadow-none text-end"
+                [(ngModel)]="row.amount">
+            </div>
+          </div>
+        </div>
+
+        <!-- ปุ่มเพิ่มแถว Budget (สำหรับ implement ฟีเจอร์ dynamic add row ในอนาคต) -->
+        <button class="btn btn-outline-light text-muted border border-dashed rounded-3 py-3 w-100 fw-bold shadow-none">
+          <i class="bi bi-plus-lg me-1"></i> Add Budget Category
+        </button>
+      </div>
+    </div>
+
+    <!-- คอลัมน์ขวา: Summary Panel + Action Buttons -->
+    <div class="col-lg-4">
+      <div class="card border-0 text-white rounded-4 overflow-hidden mb-4 shadow"
+        style="background: linear-gradient(145deg, #1a2a22, #0d1411);">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-4">Real-time Summary</h5>
+
+          <div class="d-flex justify-content-between mb-2">
+            <small class="text-secondary">Initial Budget</small>
+            <span class="fw-bold">THB {{ initialBudget | number }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-4 border-bottom border-secondary pb-2">
+            <small class="text-secondary">Total Estimated</small>
+            <span class="fw-bold text-white">THB {{ getTotalEstimated() | number }}</span>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <small class="text-secondary">Remaining</small>
+            <!-- [ngClass] เปลี่ยนสีตามว่างบเกินหรือไม่: >= 0 = ปลอดภัย, < 0 = เกินงบ -->
+            <h4 class="fw-bold mb-0" [ngClass]="getRemaining() >= 0 ? 'text-success' : 'text-danger'">
+              THB {{ getRemaining() | number }}
+            </h4>
+          </div>
+
+          <div class="progress bg-secondary mb-4" style="height: 10px; border-radius: 5px;">
+            <div class="progress-bar bg-success" [style.width.%]="getUsagePercentage()"></div>
+          </div>
+
+          <span class="badge rounded-pill px-3 py-2 fw-bold small"
+            [ngClass]="getRemaining() >= 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
+            <i class="bi" [ngClass]="getRemaining() >= 0 ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'"></i>
+            {{ getRemaining() >= 0 ? 'WITHIN BUDGET' : 'OVER BUDGET' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="d-flex flex-column gap-3">
+        <button (click)="confirmAndSave()"
+          [disabled]="isLoading"
+          class="btn btn-success rounded-pill py-3 fw-bold shadow-sm d-flex align-items-center justify-content-center"
+          style="background-color: #00e676; border: none; color: black;">
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          {{ isLoading ? 'Saving Project...' : 'Confirm Plan & Start Project' }} <i *ngIf="!isLoading" class="bi bi-arrow-right ms-2"></i>
+        </button>
+        <button routerLink="/user/estimated-form1"
+          [disabled]="isLoading"
+          class="btn btn-white bg-white rounded-pill py-3 fw-bold border-0 shadow-sm">Back to Step 1</button>
+      </div>
+    </div>
+  </div>
+</div>

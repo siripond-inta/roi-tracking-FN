@@ -1,0 +1,102 @@
+<div class="container py-4">
+  <!-- แสดงวงโหลดข้อมูล -->
+  <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5">
+    <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
+    </div>
+    <p class="text-muted mt-3 fw-bold">กำลังโหลดรายงานผลการดำเนินงานจริง...</p>
+  </div>
+
+  <div *ngIf="!isLoading && project">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item"><a routerLink="/user/projects">Projects</a></li>
+            <li class="breadcrumb-item active">{{ project.project_name }}</li>
+          </ol>
+        </nav>
+        <h2 class="fw-bold mb-0">Performance Tracking (Actual)</h2>
+      </div>
+      <div class="d-flex gap-2">
+        <button [routerLink]="['/user/estimated-report', project.project_id]" class="btn btn-outline-secondary rounded-pill">
+          View Estimates
+        </button>
+        <button class="btn btn-primary rounded-pill px-4 shadow-sm">
+          <i class="bi bi-download me-2"></i> Export PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4 text-white">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 rounded-4" style="background: linear-gradient(45deg, #ff5252, #f44336);">
+          <small class="opacity-75 text-uppercase fw-bold">Actual Total Expense</small>
+          <h2 class="fw-bold mb-0">฿{{ totalActExpense | number }}</h2>
+          <small class="opacity-75">Budget: ฿{{ totalEstExpense | number }}</small>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 rounded-4" style="background: linear-gradient(45deg, #00c853, #4caf50);">
+          <small class="opacity-75 text-uppercase fw-bold">Actual Total Revenue</small>
+          <h2 class="fw-bold mb-0">฿{{ totalActRevenue | number }}</h2>
+          <small class="opacity-75">Target: ฿{{ totalEstRevenue | number }}</small>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 rounded-4 bg-dark">
+          <small class="opacity-75 text-uppercase fw-bold">Current Net Profit</small>
+          <h2 class="fw-bold mb-0">฿{{ (totalActRevenue - totalActExpense) | number }}</h2>
+          <small [ngClass]="(totalActRevenue - totalActExpense) > (totalEstRevenue - totalEstExpense) ? 'text-success' : 'text-danger'">
+              vs Plan: {{ getVariance((totalEstRevenue - totalEstExpense), (totalActRevenue - totalActExpense)) | number }}
+          </small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Variance Analysis Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+      <div class="card-header bg-white py-3 border-bottom">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-layout-text-sidebar-reverse me-2 text-primary"></i>Comparison Breakdown</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light text-muted small">
+            <tr>
+              <th class="ps-4 py-3">PHASE / CATEGORY</th>
+              <th class="text-end">ESTIMATED (A)</th>
+              <th class="text-end">ACTUAL (B)</th>
+              <th class="text-end">VARIANCE (B-A)</th>
+              <th class="text-center">STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- ดึงข้อมูลจาก Actual Ledger มาเทียบ -->
+            <tr *ngFor="let act of actualLedger">
+              <td class="ps-4">
+                <div class="fw-bold">{{ act.note }}</div>
+                <small class="text-muted">{{ act.phase }} | {{ act.category_name || act.category_id }}</small>
+              </td>
+              <!-- หาตัวเปรียบเทียบในฝั่ง Estimated ที่เป็น category เดียวกัน -->
+              <td class="text-end text-secondary">
+                 <!-- แก้ไข: ใช้ getEstimatedMatch() หาค่า Estimated จาก category เดียวกัน -->
+                 ฿{{ getEstimatedMatch(act) | number }}
+              </td>
+              <td class="text-end fw-bold">฿{{ act.total_value | number }}</td>
+              <td class="text-end" [ngClass]="isOverBudget(act) ? 'text-danger' : 'text-success'">
+                 {{ act.type_id === 1 ? '-' : '+' }} ฿{{ (act.total_value - getEstimatedMatch(act)) | number }}
+              </td>
+              <td class="text-center">
+                <span class="badge rounded-pill" [ngClass]="isOverBudget(act) ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'">
+                  {{ isOverBudget(act) ? 'Over Budget' : 'On Track' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,37 @@
+/* src/app/components/toast/toast.component.css */
+.toast-wrapper {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none; /* ให้คลิกผ่านได้ ยกเว้น toast */
+}
+
+.toast-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  border-radius: 14px;
+  min-width: 260px;
+  max-width: 360px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  pointer-events: all;
+  animation: slideIn 0.3s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+.toast-success { background: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
+.toast-error   { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+.toast-warning { background: #fef3c7; color: #92400e; border-left: 4px solid #f59e0b; }
+.toast-info    { background: #dbeafe; color: #1e40af; border-left: 4px solid #3b82f6; }
+
+@keyframes slideIn {
+  from { transform: translateX(120%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}

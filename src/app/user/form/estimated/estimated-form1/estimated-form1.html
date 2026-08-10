@@ -1,0 +1,63 @@
+<div class="container py-5 min-vh-100 d-flex flex-column justify-content-center" style="max-width: 900px;">
+
+  <header class="mb-4">
+    <h2 class="fw-bold mb-1">Estimated ROI Entry</h2>
+    <p class="text-muted">Complete the fields below to calculate your projected return on investment. All values in Thai
+      Baht (THB).</p>
+  </header>
+
+  <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white">
+
+    <div class="d-flex align-items-center mb-4">
+      <div class="text-success me-2">
+        <i class="bi bi-info-circle fs-5"></i>
+      </div>
+      <h5 class="fw-bold mb-0">Project Information</h5>
+    </div>
+
+    <form>
+      <div class="mb-4">
+        <label class="form-label text-muted small fw-bold">Project Name</label>
+        <input type="text" name="projectName" [(ngModel)]="newProjectData.project_name" class="form-control ..."
+          placeholder="Enter project name">
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-6 mb-3 mb-md-0">
+          <label class="form-label text-muted small fw-bold">Project Type</label>
+          <div class="position-relative">
+            <select class="form-select bg-light border-0 rounded-pill px-4 py-3 shadow-none appearance-none">
+              <option selected>Revenue Project</option>
+              <option value="1">Cost Saving Project</option>
+              <option value="2">Compliance Project</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label text-muted small fw-bold">Duration (months)</label>
+          <input type="text" name="duration" [(ngModel)]="newProjectData.duration_months" class="form-control ..."
+            placeholder="e.g. 12">
+        </div>
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label text-muted small fw-bold">Initial Investment</label>
+        <div class="input-group bg-light rounded-pill px-3 py-1">
+          <span class="input-group-text bg-transparent border-0 text-muted small">THB</span>
+          <input type="text" name="budget" [(ngModel)]="newProjectData.initial_budget" class="form-control ..."
+            placeholder="0.00">
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="d-flex justify-content-end align-items-center gap-3 mt-4">
+    <button routerLink="/user/dashboard"
+      class="btn btn-light rounded-pill px-5 py-2 fw-bold border shadow-sm text-dark">Cancel</button>
+    <button (click)="onNextStep()"
+      class="btn btn-success rounded-pill px-5 py-2 fw-bold shadow-sm d-flex align-items-center"
+      style="background-color: #00e676; border: none; color: black;">
+      Next: Budget Planning <i class="bi bi-arrow-right ms-2"></i>
+    </button>
+  </div>
+</div>

@@ -1,0 +1,100 @@
+<div class="container py-5">
+    <!-- แสดงวงโหลดข้อมูล -->
+    <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5">
+        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
+        </div>
+        <p class="text-muted mt-3 fw-bold">กำลังโหลดรายงานประมาณการ...</p>
+    </div>
+
+    <div *ngIf="!isLoading && project">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-0">{{ project.project_name }}</h2>
+                <p class="text-muted">Project ID: PRJ-2026-{{ project.project_id }} | Status: <b>{{ project.status }}</b>
+                </p>
+            </div>
+            <button [routerLink]="['/user/actual-report', project.project_id]"
+                class="btn btn-outline-primary rounded-pill px-4 shadow-sm"
+                *ngIf="project.status === 'Actual'">
+                <i class="bi bi-graph-up-arrow me-2"></i> View Actual Performance
+            </button>
+            <button routerLink="/user/projects" class="btn btn-outline-dark rounded-pill px-4">Back to List</button>
+        </div>
+
+
+        <div class="row g-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm rounded-4 p-4">
+                    <h5 class="fw-bold mb-3 text-danger">Expenses Breakdown</h5>
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Category</th>
+                                <th>Note</th>
+                                <th>Phase</th>
+                                <th class="text-end">Amount (THB)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let item of getExpenses()">
+                                <td>{{ item.category_name || item.category_id }}</td>
+                                <td>{{ item.note }}</td>
+                                <td><span class="badge"
+                                        [ngClass]="item.phase === 'Actual' ? 'bg-success' : 'bg-secondary'">{{ item.phase
+                                        }}</span></td>
+                                <td class="text-end fw-bold">{{ item.total_value | number }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="col-12" *ngIf="project.status === 'Actual'">
+                <div class="card border-0 shadow-sm rounded-4 p-4 mt-4">
+                    <h5 class="fw-bold mb-4">Variance Breakdown</h5>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="text-muted small fw-bold">
+                                <tr>
+                                    <th class="border-0">CATEGORY</th>
+                                    <th class="border-0 text-end">ESTIMATED (THB)</th>
+                                    <th class="border-0 text-end">ACTUAL (THB)</th>
+                                    <th class="border-0 text-end">VARIANCE</th>
+                                    <th class="border-0 text-center">STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let cat of getUniqueCategories()">
+                                    <td class="py-3">
+                                        <div class="fw-bold text-dark">{{ getComparisonRow(cat).category }}</div>
+                                        <small class="text-muted">{{ getComparisonRow(cat).note }}</small>
+                                    </td>
+
+                                    <td class="text-end text-secondary">{{ getComparisonRow(cat).estimated | number }}</td>
+
+                                    <td class="text-end fw-bold">{{ getComparisonRow(cat).actual | number }}</td>
+
+                                    <td class="text-end fw-bold"
+                                        [ngClass]="getComparisonRow(cat).variance > 0 ? 'text-danger' : 'text-success'">
+                                        {{ getComparisonRow(cat).variance > 0 ? '+' : '' }}{{ getComparisonRow(cat).variance
+                                        | number }}
+                                    </td>
+
+                                    <td class="text-center">
+                                        <i class="bi" [ngClass]="{
+                      'bi-arrow-up-right text-danger': getComparisonRow(cat).status === 'up',
+                      'bi-arrow-down-right text-success': getComparisonRow(cat).status === 'down',
+                      'bi-dash text-muted': getComparisonRow(cat).status === 'stable'
+                    }"></i>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

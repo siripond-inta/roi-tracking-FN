@@ -1,0 +1,113 @@
+<div class="container py-5 min-vh-100" style="max-width: 1100px;">
+  <header class="mb-4">
+    <h2 class="fw-bold mb-1">{{ projectName }}</h2>
+    <p class="text-muted">Initial Budget: <span class="fw-bold text-dark">THB {{ initialBudget | number }}</span></p>
+  </header>
+
+  <!-- Progress Stepper -->
+  <div class="d-flex align-items-center mb-5 bg-white p-3 rounded-4 shadow-sm" style="width: fit-content;">
+    <div class="d-flex align-items-center me-4 opacity-50">
+      <span class="badge bg-light text-muted rounded-circle p-2 me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">1</span>
+      <small>Project Info</small>
+    </div>
+    <div class="vr mx-3 text-muted opacity-25"></div>
+    <div class="d-flex align-items-center me-4">
+      <span class="badge bg-success rounded-circle p-2 me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">2</span>
+      <small class="fw-bold">Actual Cost Recording</small>
+    </div>
+    <div class="vr mx-3 text-muted opacity-25"></div>
+    <div class="d-flex align-items-center opacity-50">
+      <span class="badge bg-light text-muted rounded-circle p-2 me-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">3</span>
+      <small>Review</small>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- คอลัมน์ซ้าย: บันทึกข้อมูล Actual -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+        <h5 class="fw-bold mb-4">Actual Financial Records</h5>
+        
+        <div class="row g-2 text-muted small fw-bold mb-2 text-uppercase" style="letter-spacing: 0.5px;">
+          <div class="col-4">Category</div>
+          <div class="col-4">Note</div>
+          <div class="col-4 text-end">Actual Amount (THB)</div>
+        </div>
+
+        <div class="d-flex flex-column gap-3 mb-4">
+          <div class="row g-2 align-items-center" *ngFor="let row of actualRows">
+            <div class="col-4">
+              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none" [(ngModel)]="row.category">
+                <option value="REV001">Revenue Generation</option>
+                <option value="CAT002">Development Cost (INV)</option>
+                <option value="CAT001">Operations Cost (OPC)</option>
+              </select>
+            </div>
+            <div class="col-4">
+              <input type="text" class="form-control bg-light border-0 rounded-pill px-3 shadow-none" [(ngModel)]="row.note">
+            </div>
+            <div class="col-4 text-end">
+              <input type="number" class="form-control bg-light border-0 rounded-pill px-3 shadow-none text-end fw-bold" [(ngModel)]="row.amount">
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-outline-light text-muted border-2 rounded-3 py-3 w-100 fw-bold" style="border-style: dashed !important;">
+          <i class="bi bi-plus-lg me-1"></i> Add Actual Category
+        </button>
+      </div>
+    </div>
+
+    <!-- คอลัมน์ขวา: สรุปยอด Summary Panel -->
+    <div class="col-lg-4">
+      <div class="card border-0 text-white rounded-4 overflow-hidden mb-4 shadow-lg" style="background: linear-gradient(145deg, #13211a, #0a0e0c);">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-4">Real-time Summary</h5>
+          
+          <div class="d-flex justify-content-between mb-2">
+            <small class="text-white-50">Initial Budget</small>
+            <span class="fw-bold">THB {{ initialBudget | number }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-4 border-bottom border-white-10 pb-2">
+            <small class="text-white-50">Total Actual Spent</small>
+            <span class="fw-bold text-white">THB {{ getTotalActualSpent() | number }}</span>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <small class="text-white-50">Budget Variance</small>
+            <h4 class="fw-bold mb-0" [ngClass]="getVariance() >= 0 ? 'text-success' : 'text-danger'" style="color: #00e676 !important;">
+              THB {{ getVariance() | number }}
+            </h4>
+          </div>
+          <p class="text-white-50 small mb-4">Spent {{ getUsagePercentage() | number:'1.0-0' }}% of planned budget</p>
+
+          <div class="progress mb-4" style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+            <div class="progress-bar" [style.width.%]="getUsagePercentage()" style="background-color: #00e676;"></div>
+          </div>
+
+          <span class="badge rounded-pill px-3 py-2 fw-bold" 
+            [ngClass]="getVariance() >= 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'"
+            style="border: 1px solid rgba(0, 230, 118, 0.2);">
+            <i class="bi" [ngClass]="getVariance() >= 0 ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'"></i>
+            {{ getVariance() >= 0 ? 'WITHIN BUDGET' : 'OVER BUDGET' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="d-flex flex-column gap-3">
+        <button (click)="confirmActual()" 
+                [disabled]="isLoading"
+                class="btn btn-success rounded-pill py-3 fw-bold shadow-sm d-flex align-items-center justify-content-center" 
+                style="background-color: #00e676; border: none; color: #000;">
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          {{ isLoading ? 'Saving Records...' : 'Save & Update Dashboard' }} <i *ngIf="!isLoading" class="bi bi-arrow-right ms-2"></i>
+        </button>
+        <button routerLink="/user/actual-form1" 
+                [disabled]="isLoading"
+                class="btn btn-white bg-white rounded-pill py-3 fw-bold border-0 shadow-sm text-dark">
+          Back to Step 1
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

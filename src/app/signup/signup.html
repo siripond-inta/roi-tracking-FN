@@ -1,0 +1,99 @@
+<div class="container-fluid min-vh-100 d-flex flex-column align-items-center justify-content-center bg-light py-5">
+
+  <div class="text-center mb-4">
+    <h3 class="fw-bold mb-1">ROI Tracking</h3>
+    <p class="text-muted small">High-Performance Financial Pulse</p>
+  </div>
+
+  <div class="card border-0 shadow-lg rounded-5 p-4 p-md-5 bg-white" style="max-width: 450px; width: 100%;">
+    <h3 class="fw-bold mb-4">Create Account</h3>
+
+    <!-- (ngSubmit): เรียก onSignup() เมื่อกด Submit -->
+    <form (ngSubmit)="onSignup()">
+
+      <!-- แสดง Error Message -->
+      <div class="alert alert-danger rounded-3 py-2 px-3 small" *ngIf="errorMessage">
+        <i class="bi bi-exclamation-circle-fill me-2"></i>{{ errorMessage }}
+      </div>
+
+      <!-- แสดง Success Message หลังสมัครสำเร็จ -->
+      <div class="alert alert-success rounded-3 py-2 px-3 small" *ngIf="successMessage">
+        <i class="bi bi-check-circle-fill me-2"></i>{{ successMessage }}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted">Full Name</label>
+        <div class="input-group bg-white rounded-pill px-3 border shadow-none">
+          <span class="input-group-text bg-transparent border-0 text-muted">
+            <i class="bi bi-person"></i>
+          </span>
+          <input type="text" name="fullName" [(ngModel)]="fullName"
+            class="form-control bg-transparent border-0 shadow-none py-2"
+            placeholder="Jane Doe"
+            autocomplete="name">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted">Email Address</label>
+        <div class="input-group bg-white rounded-pill px-3 border shadow-none">
+          <span class="input-group-text bg-transparent border-0 text-muted">
+            <i class="bi bi-envelope"></i>
+          </span>
+          <input type="email" name="email" [(ngModel)]="email"
+            class="form-control bg-transparent border-0 shadow-none py-2"
+            placeholder="jane@example.com"
+            autocomplete="email">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted">Password</label>
+        <div class="input-group bg-white rounded-pill px-3 border shadow-none">
+          <span class="input-group-text bg-transparent border-0 text-muted">
+            <i class="bi bi-lock"></i>
+          </span>
+          <input [type]="showPassword ? 'text' : 'password'" name="password" [(ngModel)]="password"
+            class="form-control bg-transparent border-0 shadow-none py-2"
+            placeholder="อย่างน้อย 6 ตัวอักษร"
+            autocomplete="new-password">
+          <span class="input-group-text bg-transparent border-0 text-muted"
+            style="cursor: pointer;" (click)="togglePassword()">
+            <i class="bi" [ngClass]="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+          </span>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <label class="form-label small fw-bold text-muted">Confirm Password</label>
+        <div class="input-group bg-white rounded-pill px-3 border shadow-none"
+          [class.border-danger]="confirmPassword && password !== confirmPassword">
+          <span class="input-group-text bg-transparent border-0 text-muted">
+            <i class="bi bi-lock-fill"></i>
+          </span>
+          <input [type]="showPassword ? 'text' : 'password'" name="confirmPassword" [(ngModel)]="confirmPassword"
+            class="form-control bg-transparent border-0 shadow-none py-2"
+            placeholder="••••••••"
+            autocomplete="new-password">
+        </div>
+        <!-- แสดง hint เมื่อ password ไม่ตรงกัน (real-time) -->
+        <small class="text-danger mt-1 d-block"
+          *ngIf="confirmPassword && password !== confirmPassword">
+          <i class="bi bi-x-circle me-1"></i>Password ไม่ตรงกัน
+        </small>
+      </div>
+
+      <button type="submit" [disabled]="isLoading"
+        class="btn btn-success w-100 rounded-pill py-3 fw-bold mb-4 shadow-sm"
+        style="background-color: #00e676; border: none; color: black;">
+        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+        {{ isLoading ? 'กำลังสมัคร...' : 'Sign Up' }}
+      </button>
+
+      <div class="text-center">
+        <span class="small text-muted">Already have an account? </span>
+        <a routerLink="/login" class="small text-success fw-bold text-decoration-none">Login</a>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,112 @@
+<div class="">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold mb-0">All Projects</h2>
+
+    <div class="d-flex align-items-center gap-2">
+      <div class="d-flex align-items-center bg-white rounded-pill px-3 border shadow-sm"
+        style="width: 280px; height: 40px;">
+        <i class="bi bi-search text-muted small"></i>
+        <input type="text" [(ngModel)]="searchTerm"
+          class="form-control border-0 bg-transparent shadow-none small"
+          placeholder="Search projects...">
+      </div>
+
+      <button class="btn btn-white rounded-circle border shadow-sm p-0 d-flex align-items-center justify-content-center"
+        style="width: 40px; height: 40px;">
+        <i class="bi bi-filter"></i>
+      </button>
+
+      <button routerLink="/user/estimated-form1"
+        class="btn rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center"
+        style="background-color: #00e676; border: none; height: 40px;">
+        <i class="bi bi-plus-lg me-2"></i> New Project
+      </button>
+    </div>
+  </div>
+
+  <!-- แสดงวงโหลดข้อมูลเมื่อกำลังโหลดโปรเจกต์ -->
+  <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5 bg-white rounded-4 shadow-sm">
+    <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
+    </div>
+    <p class="text-muted mt-3 fw-bold">กำลังโหลดรายการโปรเจกต์จากระบบ...</p>
+  </div>
+
+  <div *ngIf="!isLoading" class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="bg-light text-muted small">
+          <tr>
+            <th class="ps-4 py-3 fw-semibold">PROJECT NAME</th>
+            <th class="fw-semibold">DATE</th>
+            <th class="fw-semibold">CATEGORY</th>
+            <th class="fw-semibold">TYPE</th>
+            <th class="fw-semibold">AMOUNT (THB)</th>
+            <th class="text-center pe-4 fw-semibold">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody class="border-top-0">
+          <!-- เปลี่ยนเป็น filteredProjects: getter อัปเดตอัตโนมัติเมื่อ searchTerm เปลี่ยน -->
+          <tr *ngFor="let prj of filteredProjects">
+            <td class="ps-4">
+              <div class="d-flex align-items-center">
+                <div
+                  [ngClass]="prj.status === 'Actual' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'"
+                  class="p-2 rounded-3 me-3 d-flex">
+                  <i class="bi bi-briefcase"></i>
+                </div>
+                <div  [routerLink]="['/user/estimated-report', prj.project_id]" style="cursor: pointer;">
+                  <div class="fw-bold text-dark">{{ prj.project_name }}</div>
+                  <small class="text-muted">ID: PRJ-2026-{{ prj.project_id }}</small>
+                </div>
+              </div>
+            </td>
+
+            <td class="text-secondary">{{ prj.created_at | date:'MMM dd, yyyy' }}</td>
+
+            <td class="text-secondary">Investment</td>
+
+            <td>
+              <!-- แก้ไข: อ่านจาก project.status จริง ไม่ใช้ ID เป็นตัวตัดสิน -->
+              <span class="badge rounded-pill px-3 py-2 fw-medium"
+                [ngClass]="prj.status === 'Actual' ? 'bg-success' : 'bg-light text-muted border'">
+                {{ prj.status ?? 'Estimated' }}
+              </span>
+            </td>
+
+            <td class="fw-bold text-dark">{{ prj.initial_budget | number }}</td>
+
+            <td class="text-center pe-4">
+              <div class="d-flex justify-content-center gap-3">
+                <button class="btn btn-link p-0 text-primary" title="Edit">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+                <!-- เพิ่ม (click): เรียก deleteProject() ใน component -->
+                <button class="btn btn-link p-0 text-danger" title="Delete"
+                  (click)="deleteProject(prj.project_id, prj.project_name)">
+                  <i class="bi bi-trash"></i>
+                </button>
+                <!-- navigate ไปหน้า report ตาม status -->
+                <button class="btn btn-link p-0 text-dark" title="View Report"
+                  [routerLink]="prj.status === 'Actual'
+                    ? ['/user/actual-report', prj.project_id]
+                    : ['/user/estimated-report', prj.project_id]">
+                  <i class="bi bi-box-arrow-up-right"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card-footer bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+      <small class="text-muted">Showing {{ filteredProjects.length }} of {{ projectList.length }} entries</small>
+      <div class="btn-group shadow-sm rounded-3">
+        <button class="btn btn-white btn-sm border px-3">Previous</button>
+        <button class="btn btn-white btn-sm border px-3">Next</button>
+      </div>
+    </div>
+  </div>
+</div>

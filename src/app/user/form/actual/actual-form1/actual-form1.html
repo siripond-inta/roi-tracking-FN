@@ -1,0 +1,91 @@
+<div class="container py-5 min-vh-100 d-flex flex-column justify-content-center" style="max-width: 900px;">
+
+  <header class="mb-4">
+    <h2 class="fw-bold mb-1">Actual Performance Tracking</h2>
+    <p class="text-muted">เลือกโปรเจกต์ที่ต้องการบันทึกผลจริง (Actual) — แสดงเฉพาะโปรเจกต์ที่ยังเป็น Estimated</p>
+  </header>
+
+  <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white mb-4">
+
+    <div class="d-flex align-items-center mb-4">
+      <div class="text-success me-2"><i class="bi bi-cursor-fill fs-5"></i></div>
+      <h5 class="fw-bold mb-0">Select a Project</h5>
+    </div>
+
+    <!-- แสดงวงโหลดข้อมูล -->
+    <div *ngIf="isLoading" class="text-center py-5">
+      <div class="spinner-border text-success" role="status" style="width: 2.5rem; height: 2.5rem;">
+        <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
+      </div>
+      <p class="text-muted mt-3 fw-bold">กำลังโหลดข้อมูลโปรเจกต์จากระบบ...</p>
+    </div>
+
+    <div *ngIf="!isLoading">
+      <!-- ไม่มีโปรเจกต์ Estimated -->
+      <div *ngIf="estimatedProjects.length === 0" class="text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-3 opacity-25"></i>
+        <p class="fw-semibold">ไม่มีโปรเจกต์ที่รอบันทึก Actual</p>
+        <small>โปรเจกต์ทุกรายการมี Actual data แล้ว หรือยังไม่มีโปรเจกต์ในระบบ</small>
+      </div>
+
+      <!-- รายการโปรเจกต์ให้เลือก -->
+      <div class="row g-3">
+        <div class="col-12 col-md-6"
+             *ngFor="let prj of estimatedProjects"
+             (click)="selectProject(prj.project_id)"
+             style="cursor: pointer;">
+
+          <!-- Card เปลี่ยน style เมื่อถูกเลือก -->
+          <div class="rounded-4 p-4 border h-100 transition-all"
+               [class.border-success]="selectedProjectId === prj.project_id"
+               [class.bg-success-subtle]="selectedProjectId === prj.project_id"
+               [class.shadow-sm]="selectedProjectId !== prj.project_id"
+               [class.shadow]="selectedProjectId === prj.project_id">
+
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h6 class="fw-bold mb-1">{{ prj.project_name }}</h6>
+                <small class="text-muted">ID: PRJ-2026-{{ prj.project_id }}</small>
+              </div>
+              <!-- Checkmark icon แสดงเมื่อเลือก -->
+              <div *ngIf="selectedProjectId === prj.project_id"
+                   class="text-success fs-5">
+                <i class="bi bi-check-circle-fill"></i>
+              </div>
+              <div *ngIf="selectedProjectId !== prj.project_id"
+                   class="text-muted fs-5 opacity-25">
+                <i class="bi bi-circle"></i>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between small text-muted">
+              <span><i class="bi bi-calendar me-1"></i>{{ prj.created_at | date:'MMM yyyy' }}</span>
+              <span class="badge bg-warning-subtle text-warning rounded-pill px-2">Estimated</span>
+            </div>
+
+            <hr class="my-3 opacity-25">
+            <div class="d-flex justify-content-between small">
+              <span class="text-muted">Initial Budget</span>
+              <strong>฿{{ prj.initial_budget | number }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="d-flex justify-content-end align-items-center gap-3">
+    <button routerLink="/user/dashboard"
+            class="btn btn-light rounded-pill px-5 py-2 fw-bold border shadow-sm text-dark bg-white">
+      Cancel
+    </button>
+    <button (click)="onNext()"
+            [disabled]="!selectedProjectId"
+            class="btn btn-success rounded-pill px-5 py-2 fw-bold shadow-sm d-flex align-items-center"
+            style="background-color: #00e676; border: none; color: black;">
+      Next: Record Actuals <i class="bi bi-arrow-right ms-2"></i>
+    </button>
+  </div>
+
+</div>

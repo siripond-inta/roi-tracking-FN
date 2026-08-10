@@ -1,0 +1,103 @@
+<div class="container-fluid py-5 px-md-5 bg-light min-vh-100">
+  <div class="row g-4">
+    
+    <div class="col-12 col-lg-3">
+      <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
+        <div class="mb-4">
+          <h5 class="fw-bold mb-1">Settings</h5>
+          <small class="text-muted">Manage your pulse</small>
+        </div>
+        
+        <ul class="nav flex-column gap-2">
+          <li class="nav-item">
+            <a routerLink="/settings" class="nav-link active-setting rounded-pill px-3 py-2 d-flex align-items-center">
+              <i class="bi bi-person-fill me-2"></i> Account Profile
+            </a>
+          </li>
+          <li class="nav-item" >
+            <a routerLink="/user/security" class="nav-link text-muted px-3 py-2 d-flex align-items-center" >
+              <i class="bi bi-shield-lock me-2"></i> Security
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link text-muted px-3 py-2 d-flex align-items-center">
+              <i class="bi bi-bell me-2"></i> Notifications
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link text-muted px-3 py-2 d-flex align-items-center">
+              <i class="bi bi-credit-card me-2"></i> Plan & Billing
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="#" class="nav-link text-muted px-3 py-2 d-flex align-items-center">
+              <i class="bi bi-box me-2"></i> API Access
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-9">
+      <h2 class="fw-bold mb-1">Profile Information</h2>
+      <p class="text-muted mb-4">Update your personal details and public presence.</p>
+
+      <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+        <h6 class="fw-bold mb-4">Profile Picture</h6>
+        <div class="d-flex align-items-center">
+          <div class="avatar-circle me-4 d-flex align-items-center justify-content-center fw-bold fs-3 text-dark border border-success-subtle border-2">
+            SJ
+          </div>
+          <div>
+            <p class="text-muted small mb-3">This will be displayed on your profile and in communications.<br>Recommended size is 256x256px.</p>
+            <div class="d-flex gap-3 align-items-center">
+              <button class="btn btn-light rounded-pill px-4 py-2 border shadow-sm fw-bold">Change Picture</button>
+              <button class="btn btn-link text-danger text-decoration-none fw-bold p-0">Remove</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm rounded-4 p-4">
+        <h6 class="fw-bold mb-4">Personal Details</h6>
+        
+        <div class="row mb-4">
+          <div class="col-md-6 mb-3 mb-md-0">
+            <label class="form-label text-muted small fw-bold text-uppercase">First Name</label>
+            <input type="text" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none" value="Sarah">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-muted small fw-bold text-uppercase">Last Name</label>
+            <input type="text" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none" value="Jenkins">
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <h6 class="fw-bold mb-1">Email Address</h6>
+          <p class="text-muted small mb-3">To update your primary email address, please provide your current password.</p>
+          
+          <div class="bg-light p-4 rounded-4">
+            <div class="mb-3">
+              <label class="form-label text-muted small fw-bold text-uppercase">Primary Email</label>
+              <input type="email" class="form-control bg-white border-0 rounded-pill px-4 py-3 shadow-none" value="sarah.jenkins@emerald.com">
+            </div>
+            <div>
+              <label class="form-label text-muted small fw-bold text-uppercase">
+                <i class="bi bi-lock"></i> Current Password
+              </label>
+              <input type="password" class="form-control bg-white border-0 rounded-pill px-4 py-3 shadow-none" placeholder="Enter password to confirm email change">
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-3 mt-4 pt-3 align-items-center">
+          <button class="btn btn-link text-dark text-decoration-none fw-bold">Cancel</button>
+          <button class="btn btn-success rounded-pill px-5 py-2 fw-bold" style="background-color: #00e676; border: none; color: black;">
+            <i class="bi bi-save me-2"></i> Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
