@@ -66,30 +66,39 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr *ngFor="let cat of getUniqueCategories()">
+                                <!-- ใช้ ng-container + as pattern เพื่อเรียก getComparisonRow() แค่ครั้งเดียวต่อแถว -->
+                                <ng-container *ngFor="let cat of getUniqueCategories()">
+                                <ng-container *ngIf="getComparisonRow(cat) as row">
+                                <tr>
                                     <td class="py-3">
-                                        <div class="fw-bold text-dark">{{ getComparisonRow(cat).category }}</div>
-                                        <small class="text-muted">{{ getComparisonRow(cat).note }}</small>
+                                        <div class="fw-bold text-dark">{{ row.category }}</div>
+                                        <small class="text-muted">{{ row.note }}</small>
                                     </td>
 
-                                    <td class="text-end text-secondary">{{ getComparisonRow(cat).estimated | number }}</td>
+                                    <td class="text-end text-secondary">{{ row.estimated | number }}</td>
 
-                                    <td class="text-end fw-bold">{{ getComparisonRow(cat).actual | number }}</td>
+                                    <td class="text-end fw-bold">{{ row.actual | number }}</td>
 
-                                    <td class="text-end fw-bold"
-                                        [ngClass]="getComparisonRow(cat).variance > 0 ? 'text-danger' : 'text-success'">
-                                        {{ getComparisonRow(cat).variance > 0 ? '+' : '' }}{{ getComparisonRow(cat).variance
-                                        | number }}
+                                    <!-- สีถูกต้องตาม type:
+                                         Expense บวก = เกินงบ (แดง) | Expense ลบ = ประหยัด (เขียว)
+                                         Revenue บวก = ดีกว่าเป้า (เขียว) | Revenue ลบ = ต่ำกว่าเป้า (แดง) -->
+                                    <td class="text-end fw-bold" [ngClass]="row.isGood ? 'text-success' : 'text-danger'">
+                                        {{ row.variance > 0 ? '+' : '' }}{{ row.variance | number }}
                                     </td>
 
                                     <td class="text-center">
                                         <i class="bi" [ngClass]="{
-                      'bi-arrow-up-right text-danger': getComparisonRow(cat).status === 'up',
-                      'bi-arrow-down-right text-success': getComparisonRow(cat).status === 'down',
-                      'bi-dash text-muted': getComparisonRow(cat).status === 'stable'
-                    }"></i>
+                                            'bi-arrow-up-right':   row.status === 'up',
+                                            'bi-arrow-down-right': row.status === 'down',
+                                            'bi-dash':             row.status === 'stable',
+                                            'text-success': row.isGood,
+                                            'text-danger':  !row.isGood && row.status !== 'stable',
+                                            'text-muted':   row.status === 'stable'
+                                        }"></i>
                                     </td>
                                 </tr>
+                                </ng-container>
+                                </ng-container>
                             </tbody>
                         </table>
                     </div>

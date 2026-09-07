@@ -63,16 +63,28 @@ export class EstimatedReport implements OnInit {
 
     // ค้นหายอดของแต่ละ Phase — optional chaining (?.) ป้องกัน error ถ้าไม่พบ
     const estimated = items.find(l => l.phase === 'Estimated')?.total_value || 0;
-    const actual = items.find(l => l.phase === 'Actual')?.total_value || 0;
-    const variance = actual - estimated;
+    const actual    = items.find(l => l.phase === 'Actual')?.total_value    || 0;
+    const variance  = actual - estimated;
+
+    // ดึง type_id จาก item แรกที่พบ (category เดียวกันมี type เดียวกันเสมอ)
+    const type_id = items[0]?.type_id ?? 1;
+
+    // ─── Logic สีที่ถูกต้องตามประเภทรายการ ────────────────────────────────
+    // Expense (type_id=1): variance บวก = จ่ายเกินงบ → ไม่ดี (isGood = false)
+    //                      variance ลบ  = ประหยัดได้  → ดี   (isGood = true)
+    // Revenue (type_id=2): variance บวก = ได้มากกว่าเป้า → ดี   (isGood = true)
+    //                      variance ลบ  = ได้น้อยกว่าเป้า → ไม่ดี (isGood = false)
+    const isGood = type_id === 1 ? variance <= 0 : variance >= 0;
 
     return {
       category,
+      type_id,
       note: items[0]?.note || '-',
       estimated,
       actual,
       variance,
-      // ternary ซ้อนกัน: บวก = up, ลบ = down, ศูนย์ = stable
+      isGood,
+      // status ยังคงไว้สำหรับ icon arrow
       status: variance > 0 ? 'up' : (variance < 0 ? 'down' : 'stable')
     };
   }

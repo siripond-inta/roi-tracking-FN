@@ -1,0 +1,9 @@
+/* ─── Sticky Sidebar ───────────────────────────────────────────────────────
+   top: 76px = ความสูงของ navbar (70px) + ระยะห่าง 6px
+   ปรับค่า top ตามความสูง navbar จริงถ้าเปลี่ยน py-3 ของ nav
+   ────────────────────────────────────────────────────────────────────────── */
+.settings-sidebar {
+  position: sticky;
+  top: 76px;           /* ชิดด้านบนหลัง navbar */
+  align-self: flex-start; /* ป้องกัน Bootstrap stretch ทำให้ card ยืดเต็ม column */
+}

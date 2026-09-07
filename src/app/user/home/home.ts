@@ -66,26 +66,45 @@ export class Home implements OnInit {
     });
   }
 
+  // ─── Helper: เลือก Ledger Phase ที่ถูกต้องตาม Project Status ───────────
+  // หลักการ: โปรเจกต์ที่มีข้อมูล Actual แล้ว → ใช้แค่ Actual (ของจริง)
+  //          โปรเจกต์ที่ยังเป็น Estimated → ใช้แค่ Estimated (ประมาณการ)
+  // เหตุผล: ถ้าใช้ทั้งสอง Phase ปนกัน ยอดจะถูกนับซ้ำ (doubled)
+  private getRelevantLedgers(projectId: number): ProjectLedger[] {
+    const project = this.projects.find(p => p.project_id === projectId);
+    // เลือก phase ตาม status ของโปรเจกต์
+    const preferredPhase = project?.status === 'Actual' ? 'Actual' : 'Estimated';
+    return this.ledger.filter(
+      l => l.project_id === projectId && l.phase === preferredPhase
+    );
+  }
+
   calculateSummary(): void {
     // 1. รวมงบประมาณเริ่มต้นของทุกโปรเจกต์ด้วย reduce()
     this.totalBudget = this.projects.reduce((sum, prj) => sum + prj.initial_budget, 0);
 
-    // 2. รวม Revenue ทั้งหมด (type_id === 2 หมายถึงรายได้)
-    const totalRevenue = this.ledger
-      .filter(entry => entry.type_id === 2)
-      .reduce((sum, entry) => sum + entry.total_value, 0);
-    this.totalBenefits = totalRevenue;
+    // 2-3. รวม Revenue และ Expense โดยใช้เฉพาะ Phase ที่ถูกต้องของแต่ละโปรเจกต์
+    // วน loop ทีละโปรเจกต์เพื่อเลือก Phase ก่อนรวมยอด (ไม่รวมทุก Phase ปนกัน)
+    let totalRevenue = 0;
+    let totalExpenses = 0;
 
-    // 3. รวม Expense ทั้งหมด (type_id === 1 หมายถึงค่าใช้จ่าย)
-    const totalExpenses = this.ledger
-      .filter(entry => entry.type_id === 1)
-      .reduce((sum, entry) => sum + entry.total_value, 0);
+    this.projects.forEach(project => {
+      const relevant = this.getRelevantLedgers(project.project_id);
+      totalRevenue  += relevant
+        .filter(l => l.type_id === 2)
+        .reduce((sum, l) => sum + l.total_value, 0);
+      totalExpenses += relevant
+        .filter(l => l.type_id === 1)
+        .reduce((sum, l) => sum + l.total_value, 0);
+    });
+
+    this.totalBenefits = totalRevenue;
 
     // 4. คำนวณ Average ROI: ((Revenue - Expenses) / Expenses) × 100
     // ตรวจ totalExpenses > 0 ก่อนเสมอเพื่อป้องกัน division by zero
     if (totalExpenses > 0) {
       this.averageROI = ((totalRevenue - totalExpenses) / totalExpenses) * 100;
-      // Budget Utilization: สัดส่วนค่าใช้จ่ายจริงเทียบกับงบตั้งต้น
+      // Budget Utilization: สัดส่วนค่าใช้จ่ายเทียบกับงบตั้งต้น
       this.budgetUtilization = (totalExpenses / this.totalBudget) * 100;
     }
   }
@@ -106,15 +125,16 @@ export class Home implements OnInit {
       : 'bg-warning-subtle text-warning';
   }
 
-  // คำนวณ ROI รายโปรเจกต์: filter Ledger ของโปรเจกต์นั้น แล้วคำนวณ
+  // คำนวณ ROI รายโปรเจกต์ โดยใช้เฉพาะ Phase ที่ถูกต้อง
+  // (ใช้ getRelevantLedgers() เพื่อไม่ให้ Estimated + Actual นับซ้ำกัน)
   getProjectROI(projectId: number): number {
-    const projectLedger = this.ledger.filter(l => l.project_id === projectId);
-    const revenue = projectLedger
+    const relevant = this.getRelevantLedgers(projectId);
+    const revenue = relevant
       .filter(l => l.type_id === 2)
-      .reduce((s, e) => s + e.total_value, 0);
-    const expenses = projectLedger
+      .reduce((s, l) => s + l.total_value, 0);
+    const expenses = relevant
       .filter(l => l.type_id === 1)
-      .reduce((s, e) => s + e.total_value, 0);
+      .reduce((s, l) => s + l.total_value, 0);
     // ป้องกัน division by zero: ถ้าไม่มีค่าใช้จ่าย ROI = 0
     return expenses > 0 ? ((revenue - expenses) / expenses) * 100 : 0;
   }
