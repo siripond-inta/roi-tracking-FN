@@ -118,4 +118,48 @@ export class ProjectService {
   deleteProject(projectId: number): Observable<any> {
     return this.http.delete(`${this.API_URL}/${projectId}`);
   }
+
+  // 8. สร้างโปรเจกต์อย่างเดียว (ไม่ส่ง Ledger) — ใช้กับ Flow ใหม่ที่บันทึกก่อน navigate
+  addProjectOnly(newProject: Partial<Project>): Observable<{ project_id: number }> {
+    return this.http.post<ApiResponse<{ project_id: number }>>(this.API_URL, {
+      project_name: newProject.project_name,
+      project_type_id: newProject.project_type_id,
+      duration_months: newProject.duration_months,
+      initial_budget: newProject.initial_budget,
+      custom_project_type: newProject.custom_project_type || null
+    }).pipe(map(res => res.data));
+  }
+
+  // 9. อัปเดต Estimated Ledgers (replace ทั้งหมด)
+  updateEstimatedLedgers(projectId: number, ledgers: Partial<ProjectLedger>[]): Observable<any> {
+    const ledgersToSend = ledgers.map(l => ({
+      type_id: l.type_id,
+      category_id: l.category_id,
+      total_value: l.total_value,
+      note: l.note,
+      transaction_date: l.transaction_date instanceof Date
+        ? l.transaction_date.toISOString().split('T')[0]
+        : l.transaction_date
+    }));
+    return this.http.put(`${this.API_URL}/${projectId}/ledgers/estimated`, { ledgers: ledgersToSend });
+  }
+
+  // 10. อัปเดต Actual Ledgers (replace ทั้งหมด)
+  updateActualLedgers(projectId: number, ledgers: Partial<ProjectLedger>[]): Observable<any> {
+    const ledgersToSend = ledgers.map(l => ({
+      type_id: l.type_id,
+      category_id: l.category_id,
+      total_value: l.total_value,
+      note: l.note,
+      transaction_date: l.transaction_date instanceof Date
+        ? l.transaction_date.toISOString().split('T')[0]
+        : l.transaction_date
+    }));
+    return this.http.put(`${this.API_URL}/${projectId}/ledgers/actual`, { ledgers: ledgersToSend });
+  }
+
+  // 11. สลับ Public/Private
+  toggleVisibility(projectId: number, isPublic: boolean): Observable<any> {
+    return this.http.patch(`${this.API_URL}/${projectId}/visibility`, { is_public: isPublic });
+  }
 }

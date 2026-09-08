@@ -1,66 +1,100 @@
 <div class="container py-5 min-vh-100 d-flex flex-column justify-content-center" style="max-width: 900px;">
 
   <header class="mb-4">
-    <h2 class="fw-bold mb-1">Estimated ROI Entry</h2>
-    <p class="text-muted">Complete the fields below to calculate your projected return on investment. All values in Thai
-      Baht (THB).</p>
+    <div class="d-flex align-items-center mb-2">
+      <div class="rounded-3 p-2 me-3 d-flex align-items-center justify-content-center"
+        style="background: linear-gradient(135deg, #1a6b3c, #28a745); width:48px; height:48px;">
+        <i class="bi bi-folder-plus text-white fs-4"></i>
+      </div>
+      <div>
+        <h2 class="fw-bold mb-0">สร้างโปรเจกต์ใหม่</h2>
+        <p class="text-muted mb-0 small">กรอกข้อมูลพื้นฐานของโปรเจกต์ก่อน จากนั้นจะไปหน้ารายงานเพื่อกรอกรายรับ-รายจ่าย</p>
+      </div>
+    </div>
   </header>
 
-  <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white">
+  <div class="card border-0 shadow rounded-4 p-4 p-md-5 bg-white">
 
     <div class="d-flex align-items-center mb-4">
-      <div class="text-success me-2">
-        <i class="bi bi-info-circle fs-5"></i>
+      <div class="me-2" style="color:#198754">
+        <i class="bi bi-info-circle-fill fs-5"></i>
       </div>
-      <h5 class="fw-bold mb-0">Project Information</h5>
+      <h5 class="fw-bold mb-0">ข้อมูลโปรเจกต์</h5>
     </div>
 
     <form>
+      <!-- ชื่อโปรเจกต์ -->
       <div class="mb-4">
-        <label class="form-label text-muted small fw-bold">Project Name</label>
-        <input type="text" name="projectName" [(ngModel)]="newProjectData.project_name" class="form-control ..."
-          placeholder="Enter project name">
+        <label class="form-label fw-semibold text-dark">ชื่อโปรเจกต์ <span class="text-danger">*</span></label>
+        <input type="text" name="projectName" [(ngModel)]="newProjectData.project_name"
+          class="form-control form-control-lg rounded-3 border-1"
+          style="background:#f8f9fa;"
+          placeholder="">
       </div>
 
       <div class="row mb-4">
+        <!-- ประเภทโปรเจกต์ -->
         <div class="col-md-6 mb-3 mb-md-0">
-          <label class="form-label text-muted small fw-bold">Project Type</label>
-          <div class="position-relative">
-            <select class="form-select bg-light border-0 rounded-pill px-4 py-3 shadow-none appearance-none"
-              name="projectType" [(ngModel)]="newProjectData.project_type_id">
-              <option [ngValue]="1">Revenue Project</option>
-              <option [ngValue]="2">Cost Saving Project</option>
-              <option [ngValue]="3">Compliance Project</option>
-            </select>
+          <label class="form-label fw-semibold text-dark">ประเภทโปรเจกต์</label>
+          <select class="form-select form-select-lg rounded-3 border-1"
+            style="background:#f8f9fa;"
+            name="projectType" [(ngModel)]="newProjectData.project_type_id">
+            <option [ngValue]="1">โปรเจกต์รายได้</option>
+            <option [ngValue]="2">โปรเจกต์ลดต้นทุน</option>
+            <option [ngValue]="3">โปรเจกต์ตามข้อบังคับ</option>
+            <option [ngValue]="4">อื่นๆ (ระบุเอง)</option>
+          </select>
+          <!-- input สำหรับ "อื่นๆ" -->
+          <div *ngIf="isOtherType" class="mt-2">
+            <input type="text" name="customType" [(ngModel)]="newProjectData.custom_project_type"
+              class="form-control rounded-3 border-1"
+              style="background:#f8f9fa;"
+              placeholder="ระบุประเภทโปรเจกต์">
           </div>
         </div>
+
+        <!-- ระยะเวลา -->
         <div class="col-md-6">
-          <label class="form-label text-muted small fw-bold">Duration (months)</label>
+          <label class="form-label fw-semibold text-dark">ระยะเวลาโครงการ (เดือน) <span class="text-danger">*</span></label>
           <input type="number" name="duration" [(ngModel)]="newProjectData.duration_months"
-            class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none"
-            placeholder="e.g. 12" min="1">
+            class="form-control form-control-lg rounded-3 border-1"
+            style="background:#f8f9fa;"
+            placeholder="0" min="1">
         </div>
       </div>
 
+      <!-- งบลงทุนเริ่มต้น -->
       <div class="mb-2">
-        <label class="form-label text-muted small fw-bold">Initial Investment</label>
-        <div class="input-group bg-light rounded-pill px-3 py-1">
-          <span class="input-group-text bg-transparent border-0 text-muted small">THB</span>
+        <label class="form-label fw-semibold text-dark">งบลงทุนเริ่มต้น (บาท) <span class="text-danger">*</span></label>
+        <div class="input-group input-group-lg">
+          <span class="input-group-text rounded-start-3 border-end-0" style="background:#f8f9fa; border-color:#dee2e6;">
+            <i class="bi bi-currency-exchange text-muted"></i>
+            <span class="ms-1 text-muted small fw-semibold">THB</span>
+          </span>
           <input type="number" name="budget" [(ngModel)]="newProjectData.initial_budget"
-            class="form-control bg-transparent border-0 shadow-none text-end fw-bold"
-            placeholder="0.00" min="0" step="0.01">
+            class="form-control rounded-end-3 border-start-0 text-end fw-bold"
+            style="background:#f8f9fa; border-color:#dee2e6;"
+            placeholder="0" min="0" step="1">
         </div>
       </div>
     </form>
   </div>
 
-  <div class="d-flex justify-content-end align-items-center gap-3 mt-4">
+  <!-- Action Buttons -->
+  <div class="d-flex justify-content-between align-items-center gap-3 mt-4">
     <button routerLink="/user/dashboard"
-      class="btn btn-light rounded-pill px-5 py-2 fw-bold border shadow-sm text-dark">Cancel</button>
-    <button (click)="onNextStep()"
-      class="btn btn-success rounded-pill px-5 py-2 fw-bold shadow-sm d-flex align-items-center"
-      style="background-color: #00e676; border: none; color: black;">
-      Next: Budget Planning <i class="bi bi-arrow-right ms-2"></i>
+      class="btn btn-outline-secondary rounded-pill px-5 py-2 fw-semibold">
+      <i class="bi bi-x-lg me-2"></i>ยกเลิก
+    </button>
+    <button (click)="onNextStep()" [disabled]="isLoading"
+      class="btn rounded-pill px-5 py-2 fw-bold shadow-sm d-flex align-items-center"
+      style="background: linear-gradient(135deg, #1a6b3c, #28a745); border:none; color:white; min-width:180px;">
+      <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+      <span *ngIf="!isLoading">
+        ถัดไป — บันทึกและเพิ่มรายการ <i class="bi bi-arrow-right ms-2"></i>
+      </span>
+      <span *ngIf="isLoading">กำลังสร้างโปรเจกต์...</span>
     </button>
   </div>
+
 </div>

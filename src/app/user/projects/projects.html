@@ -56,7 +56,9 @@
                   class="p-2 rounded-3 me-3 d-flex">
                   <i class="bi bi-briefcase"></i>
                 </div>
-                <div  [routerLink]="['/user/estimated-report', prj.project_id]" style="cursor: pointer;">
+                <div [routerLink]="prj.status === 'Actual'
+                    ? ['/user/actual-report', prj.project_id]
+                    : ['/user/estimated-report', prj.project_id]" style="cursor: pointer;">
                   <div class="fw-bold text-dark">{{ prj.project_name }}</div>
                   <small class="text-muted">ID: PRJ-2026-{{ prj.project_id }}</small>
                 </div>
@@ -79,7 +81,8 @@
 
             <td class="text-center pe-4">
               <div class="d-flex justify-content-center gap-3">
-                <button class="btn btn-link p-0 text-primary" title="Edit">
+                <button class="btn btn-link p-0 text-primary" title="Edit"
+                  (click)="editProject(prj)">
                   <i class="bi bi-pencil-square"></i>
                 </button>
                 <!-- เพิ่ม (click): เรียก deleteProject() ใน component -->

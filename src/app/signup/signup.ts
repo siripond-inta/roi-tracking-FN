@@ -13,6 +13,7 @@ import { AuthService } from '../services/auth.service';
 })
 export class Signup {
   fullName: string = '';
+  companyName: string = '';
   email: string = '';
   password: string = '';
   confirmPassword: string = '';
@@ -47,7 +48,7 @@ export class Signup {
 
     this.isLoading = true;
 
-    this.authService.signup(this.fullName, this.email, this.password).subscribe({
+    this.authService.signup(this.fullName.trim(), this.email.trim(), this.password, this.companyName.trim() || undefined).subscribe({
       next: () => {
         this.isLoading = false;
         this.successMessage = 'สมัครสมาชิกสำเร็จ! กำลังนำคุณไปหน้า Login...';

@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterLink, RouterModule } from '@angular/router';
+import { Router, RouterLink, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Project } from '../../models/roi-tracking-model';
@@ -22,7 +22,8 @@ export class Projects implements OnInit {
 
   constructor(
     private projectService: ProjectService,
-    private toastService: ToastService
+    private toastService: ToastService,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -80,9 +81,21 @@ export class Projects implements OnInit {
     });
   }
 
+  // แก้ไขโปรเจกต์: ถ้าสถานะเป็น Actual ให้ไปแก้ไข Actual, ถ้าสถานะเป็น Estimated ให้ไปแก้ไข Estimated
+  editProject(prj: Project): void {
+    const route = prj.status === 'Actual'
+      ? '/user/actual-report'
+      : '/user/estimated-report';
+    this.router.navigate([route, prj.project_id], {
+      queryParams: { mode: 'edit' }
+    });
+  }
+
   // navigate ไปหน้า report ที่ถูกต้องตาม status
   viewReport(prj: Project): void {
-    // ไม่ต้อง return string เพราะใช้ routerLink ใน template ได้ดีกว่า
-    // method นี้เตรียมไว้สำหรับ programmatic navigation ถ้าต้องการในอนาคต
+    const route = prj.status === 'Actual'
+      ? '/user/actual-report'
+      : '/user/estimated-report';
+    this.router.navigate([route, prj.project_id]);
   }
 }

@@ -5,9 +5,10 @@
 export interface User {
   user_id: number;
   email: string;
-  password_hash?: string; // optional เพราะ Backend ไม่ส่ง field นี้กลับมา
+  password_hash?: string;
   full_name: string;
   role: 'admin' | 'user';
+  company_name?: string;
   created_at: Date;
 }
 
@@ -28,11 +29,13 @@ export interface Project {
   user_id: number;
   project_name: string;
   project_type_id: number;
-  project_type?: string;      // JOIN จาก project_types.type_name
+  project_type?: string;
+  custom_project_type?: string;  // ค่า text จาก "อื่นๆ"
   duration_months: number;
   initial_budget: number;
+  is_public?: boolean;           // สาธารณะ = true, ส่วนตัว = false
   created_at: Date;
-  status?: 'Estimated' | 'Actual'; // คำนวณจาก project_ledger.phase ใน SQL
+  status?: 'Estimated' | 'Actual';
 }
 
 export interface Category {

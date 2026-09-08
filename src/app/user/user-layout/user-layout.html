@@ -1,35 +1,51 @@
 <nav class="navbar navbar-expand-lg bg-white border-bottom py-3 sticky-top shadow-sm">
   <div class="container-fluid px-4">
-    <a class="navbar-brand fw-bold" routerLink="/user/dashboard">ROI Tracking</a>
+    <!-- Logo + Brand -->
+    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" routerLink="/user/dashboard">
+      <div class="rounded-3 d-flex align-items-center justify-content-center"
+        style="width:34px; height:34px; background:linear-gradient(135deg,#1a6b3c,#28a745);">
+        <i class="bi bi-graph-up-arrow text-white" style="font-size:.9rem"></i>
+      </div>
+      <span style="font-size:1rem; letter-spacing:-.3px;">ROI Tracking</span>
+    </a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
 
     <div class="collapse navbar-collapse" id="navbarNav">
-      <!-- Nav Links ตรงกลาง -->
-      <ul class="navbar-nav mx-auto">
+      <!-- Nav Icons ตรงกลาง -->
+      <ul class="navbar-nav mx-auto gap-1">
         <li class="nav-item">
-          <!-- routerLinkActive: เพิ่ม class 'active-custom' โดยอัตโนมัติเมื่ออยู่หน้านี้ -->
-          <a class="nav-link" routerLink="/user/dashboard" routerLinkActive="active-custom">Dashboard</a>
+          <a class="nav-link nav-icon-btn d-flex align-items-center justify-content-center rounded-3"
+            routerLink="/user/dashboard" routerLinkActive="active-custom"
+            title="Dashboard" style="width:44px; height:44px;">
+            <i class="bi bi-grid-1x2-fill"></i>
+          </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" routerLink="/user/projects" routerLinkActive="active-custom">Projects</a>
+          <a class="nav-link nav-icon-btn d-flex align-items-center justify-content-center rounded-3"
+            routerLink="/user/projects" routerLinkActive="active-custom"
+            title="Projects" style="width:44px; height:44px;">
+            <i class="bi bi-folder2-open"></i>
+          </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" routerLink="/user/settings" routerLinkActive="active-custom">Settings</a>
+          <a class="nav-link nav-icon-btn d-flex align-items-center justify-content-center rounded-3"
+            routerLink="/user/settings" routerLinkActive="active-custom"
+            title="Settings" style="width:44px; height:44px;">
+            <i class="bi bi-gear-fill"></i>
+          </a>
         </li>
       </ul>
 
-      <!-- ฝั่งขวา: ชื่อ User + Dropdown Logout -->
+      <!-- ฝั่งขวา -->
       <div class="d-flex align-items-center gap-2">
-        <!-- แสดงชื่อ user จาก signal() — อัปเดตอัตโนมัติเมื่อ login/logout -->
         <span class="small text-muted fw-medium">
           <i class="bi bi-person-circle me-1"></i>
           {{ authService.currentUser()?.fullName || 'User' }}
         </span>
 
-        <!-- Dropdown Menu -->
         <div class="dropdown">
           <button class="btn btn-sm btn-light rounded-pill border dropdown-toggle px-3"
             type="button" data-bs-toggle="dropdown">
@@ -48,7 +64,6 @@
             </li>
             <li><hr class="dropdown-divider"></li>
             <li>
-              <!-- (click)="logout()": เรียก method ใน component -->
               <button class="dropdown-item small text-danger" (click)="logout()">
                 <i class="bi bi-box-arrow-right me-2"></i>Logout
               </button>

@@ -1,0 +1,46 @@
+/* Card and transition enhancements */
+.card {
+  transition: all 0.2s ease-in-out;
+}
+
+.table th {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.table td {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.border-dashed {
+  border-style: dashed !important;
+  border-width: 1.5px !important;
+  background-color: transparent !important;
+  transition: all 0.2s ease;
+}
+
+.border-dashed:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+
+.form-select-sm, .form-control-sm {
+  font-size: 0.875rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.form-select-sm:focus, .form-control-sm:focus {
+  box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.15);
+  border-color: #198754;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}

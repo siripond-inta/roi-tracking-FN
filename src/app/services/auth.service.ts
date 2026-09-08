@@ -56,11 +56,12 @@ export class AuthService {
   }
 
   // เรียก POST /api/auth/signup
-  signup(fullName: string, email: string, password: string): Observable<{ message: string }> {
+  signup(fullName: string, email: string, password: string, companyName?: string): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.API_URL}/signup`, {
       full_name: fullName,
       email,
-      password
+      password,
+      company_name: companyName || null
     });
   }
 

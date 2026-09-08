@@ -1,0 +1,12 @@
+/* Print CSS — ซ่อนทุกอย่างยกเว้นตาราง Actual */
+@media print {
+  nav, .btn, button, .no-print, .sidebar, header.navbar {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    font-size: 12pt;
+  }
+}

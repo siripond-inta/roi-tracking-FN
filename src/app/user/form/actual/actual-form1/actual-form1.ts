@@ -58,8 +58,8 @@ export class ActualForm1 implements OnInit {
       this.toastService.warning('กรุณาเลือกโปรเจกต์ที่ต้องการบันทึก Actual');
       return;
     }
-    // บันทึก Project ID ชั่วคราวใน localStorage เพื่อส่งต่อไป actual-form2
-    localStorage.setItem('current_actual_id', String(this.selectedProjectId));
-    this.router.navigate(['/user/actual-form2']);
+    this.router.navigate(['/user/actual-report', this.selectedProjectId], {
+      queryParams: { mode: 'create' }
+    });
   }
 }

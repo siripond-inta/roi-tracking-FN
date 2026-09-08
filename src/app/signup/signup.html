@@ -22,7 +22,7 @@
       </div>
 
       <div class="mb-3">
-        <label class="form-label small fw-bold text-muted">Full Name</label>
+        <label class="form-label small fw-bold text-muted">Full Name <span class="text-danger">*</span></label>
         <div class="input-group bg-white rounded-pill px-3 border shadow-none">
           <span class="input-group-text bg-transparent border-0 text-muted">
             <i class="bi bi-person"></i>
@@ -31,6 +31,18 @@
             class="form-control bg-transparent border-0 shadow-none py-2"
             placeholder="Jane Doe"
             autocomplete="name">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted">Company / Organization <span class="text-muted fw-normal">(Optional)</span></label>
+        <div class="input-group bg-white rounded-pill px-3 border shadow-none">
+          <span class="input-group-text bg-transparent border-0 text-muted">
+            <i class="bi bi-building"></i>
+          </span>
+          <input type="text" name="companyName" [(ngModel)]="companyName"
+            class="form-control bg-transparent border-0 shadow-none py-2"
+            placeholder="บริษัท / องค์กรของคุณ">
         </div>
       </div>
 
