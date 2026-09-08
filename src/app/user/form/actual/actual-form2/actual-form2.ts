@@ -12,6 +12,7 @@ interface ActualRow {
   note: string;
   amount: number;
   type_id: number; // 1 = Expense, 2 = Revenue
+  transaction_date: string; // YYYY-MM-DD — ให้ user กรอกวันที่จริงที่เกิดรายการ
 }
 
 @Component({
@@ -27,11 +28,7 @@ export class ActualForm2 implements OnInit {
   projectId!: number;
 
   // ใช้ ActualRow interface แทน any[] เพื่อ Type Safety
-  actualRows: ActualRow[] = [
-    { category: 'REV001', note: 'Actual Revenue', amount: 0, type_id: 2 },
-    { category: 'CAT002', note: 'Actual Expense (Labor)', amount: 0, type_id: 1 },
-    { category: 'CAT001', note: 'Actual Maintenance (Hardware)', amount: 0, type_id: 1 }
-  ];
+  actualRows: ActualRow[] = [];
 
   constructor(
     private projectService: ProjectService,
@@ -48,7 +45,9 @@ export class ActualForm2 implements OnInit {
       return;
     }
 
-    // ดึงชื่อและงบประมาณดั้งเดิมจากฐานข้อมูล
+    this.isLoading = true;
+
+    // ดึงข้อมูลโปรเจกต์และ Estimated Ledger เพื่อ pre-fill
     this.projectService.getProjectById(this.projectId).subscribe({
       next: (project) => {
         this.projectName = project.project_name;
@@ -59,12 +58,68 @@ export class ActualForm2 implements OnInit {
         this.toastService.error('โหลดข้อมูลรายละเอียดโปรเจกต์ไม่สำเร็จ');
       }
     });
+
+    // ดึง Estimated Ledger เพื่อ pre-fill แถว Actual ให้ผู้ใช้แก้แค่ตัวเลข
+    this.projectService.getLedgersByProjectId(this.projectId).subscribe({
+      next: (ledgers) => {
+        const estimatedLedgers = ledgers.filter(l => l.phase === 'Estimated');
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+        if (estimatedLedgers.length > 0) {
+          // Pre-fill จาก Estimated: ใช้ category, type, note เดิม แต่ตั้ง amount = 0 ให้กรอกใหม่
+          this.actualRows = estimatedLedgers.map(l => ({
+            category: String(l.category_id),
+            note: `Actual: ${l.note || ''}`.trim(),
+            amount: 0,
+            type_id: Number(l.type_id),
+            transaction_date: today
+          }));
+        } else {
+          // ถ้าไม่มี Estimated → สร้างแถวว่างเริ่มต้น
+          this.actualRows = [
+            { category: 'REV001', note: 'Actual Revenue', amount: 0, type_id: 2, transaction_date: today },
+            { category: 'CAT002', note: 'Actual Expense (Labor)', amount: 0, type_id: 1, transaction_date: today },
+            { category: 'CAT001', note: 'Actual Maintenance (Hardware)', amount: 0, type_id: 1, transaction_date: today }
+          ];
+        }
+        this.isLoading = false;
+      },
+      error: (err) => {
+        console.error('Error fetching estimated ledgers:', err);
+        this.isLoading = false;
+        // Fallback: สร้างแถวว่างเริ่มต้น
+        const today = new Date().toISOString().split('T')[0];
+        this.actualRows = [
+          { category: 'REV001', note: 'Actual Revenue', amount: 0, type_id: 2, transaction_date: today },
+          { category: 'CAT002', note: 'Actual Expense', amount: 0, type_id: 1, transaction_date: today }
+        ];
+      }
+    });
+  }
+
+  // ─── เพิ่ม/ลบแถว ──────────────────────────────────────────────────────────
+  addRow(): void {
+    const today = new Date().toISOString().split('T')[0];
+    this.actualRows.push({ category: 'CAT001', note: '', amount: 0, type_id: 1, transaction_date: today });
+  }
+
+  removeRow(index: number): void {
+    if (this.actualRows.length > 1) {
+      this.actualRows.splice(index, 1);
+    }
   }
 
   // ยอดจ่ายจริงทั้งหมด (type_id = 1)
   getTotalActualSpent(): number {
     return this.actualRows
       .filter(row => row.type_id === 1)
+      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  }
+
+  // ยอดรายรับจริงทั้งหมด (type_id = 2)
+  getTotalActualRevenue(): number {
+    return this.actualRows
+      .filter(row => row.type_id === 2)
       .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   }
 
@@ -88,6 +143,13 @@ export class ActualForm2 implements OnInit {
       return;
     }
 
+    // Validation: ตรวจสอบว่าทุก row ที่มี amount กรอก transaction_date ด้วย
+    const missingDate = this.actualRows.some(row => row.amount > 0 && !row.transaction_date);
+    if (missingDate) {
+      this.toastService.warning('กรุณาระบุวันที่ของรายการที่กรอกจำนวนเงินไว้');
+      return;
+    }
+
     // แปลงแต่ละ ActualRow เป็น ProjectLedger พร้อมบันทึก
     const actualLedgers: Partial<ProjectLedger>[] = this.actualRows
       .filter(row => row.amount > 0)
@@ -96,7 +158,7 @@ export class ActualForm2 implements OnInit {
         type_id: row.type_id,
         category_id: row.category,
         total_value: row.amount,
-        transaction_date: new Date(),
+        transaction_date: new Date(row.transaction_date),
         note: row.note
       }));
 

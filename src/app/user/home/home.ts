@@ -71,41 +71,47 @@ export class Home implements OnInit {
   //          โปรเจกต์ที่ยังเป็น Estimated → ใช้แค่ Estimated (ประมาณการ)
   // เหตุผล: ถ้าใช้ทั้งสอง Phase ปนกัน ยอดจะถูกนับซ้ำ (doubled)
   private getRelevantLedgers(projectId: number): ProjectLedger[] {
-    const project = this.projects.find(p => p.project_id === projectId);
+    const project = this.projects.find(p => Number(p.project_id) === Number(projectId));
     // เลือก phase ตาม status ของโปรเจกต์
     const preferredPhase = project?.status === 'Actual' ? 'Actual' : 'Estimated';
     return this.ledger.filter(
-      l => l.project_id === projectId && l.phase === preferredPhase
+      l => Number(l.project_id) === Number(projectId) && l.phase === preferredPhase
     );
   }
 
   calculateSummary(): void {
-    // 1. รวมงบประมาณเริ่มต้นของทุกโปรเจกต์ด้วย reduce()
-    this.totalBudget = this.projects.reduce((sum, prj) => sum + prj.initial_budget, 0);
+    // 1. รวมงบประมาณเริ่มต้นของทุกโปรเจกต์ด้วย reduce() (เเปลงเป็น Number ป้องกัน String Concatenation)
+    this.totalBudget = this.projects.reduce((sum, prj) => sum + Number(prj.initial_budget || 0), 0);
 
     // 2-3. รวม Revenue และ Expense โดยใช้เฉพาะ Phase ที่ถูกต้องของแต่ละโปรเจกต์
-    // วน loop ทีละโปรเจกต์เพื่อเลือก Phase ก่อนรวมยอด (ไม่รวมทุก Phase ปนกัน)
     let totalRevenue = 0;
     let totalExpenses = 0;
 
     this.projects.forEach(project => {
       const relevant = this.getRelevantLedgers(project.project_id);
       totalRevenue  += relevant
-        .filter(l => l.type_id === 2)
-        .reduce((sum, l) => sum + l.total_value, 0);
+        .filter(l => Number(l.type_id) === 2)
+        .reduce((sum, l) => sum + Number(l.total_value || 0), 0);
       totalExpenses += relevant
-        .filter(l => l.type_id === 1)
-        .reduce((sum, l) => sum + l.total_value, 0);
+        .filter(l => Number(l.type_id) === 1)
+        .reduce((sum, l) => sum + Number(l.total_value || 0), 0);
     });
 
     this.totalBenefits = totalRevenue;
 
-    // 4. คำนวณ Average ROI: ((Revenue - Expenses) / Expenses) × 100
-    // ตรวจ totalExpenses > 0 ก่อนเสมอเพื่อป้องกัน division by zero
-    if (totalExpenses > 0) {
-      this.averageROI = ((totalRevenue - totalExpenses) / totalExpenses) * 100;
-      // Budget Utilization: สัดส่วนค่าใช้จ่ายเทียบกับงบตั้งต้น
+    // 4. คำนวณ Average ROI จากค่าเฉลี่ย ROI ของโปรเจกต์ที่มีข้อมูล
+    if (this.projects.length > 0) {
+      const projectROIs = this.projects.map(p => this.getProjectROI(p.project_id));
+      this.averageROI = projectROIs.reduce((sum, r) => sum + r, 0) / projectROIs.length;
+    } else {
+      this.averageROI = 0;
+    }
+
+    // Budget Utilization: สัดส่วนค่าใช้จ่ายเทียบกับงบตั้งต้น
+    if (this.totalBudget > 0) {
       this.budgetUtilization = (totalExpenses / this.totalBudget) * 100;
+    } else {
+      this.budgetUtilization = 0;
     }
   }
 
@@ -128,14 +134,24 @@ export class Home implements OnInit {
   // คำนวณ ROI รายโปรเจกต์ โดยใช้เฉพาะ Phase ที่ถูกต้อง
   // (ใช้ getRelevantLedgers() เพื่อไม่ให้ Estimated + Actual นับซ้ำกัน)
   getProjectROI(projectId: number): number {
+    const project = this.projects.find(p => Number(p.project_id) === Number(projectId));
     const relevant = this.getRelevantLedgers(projectId);
+
+    // ถ้าไม่มีรายการ Ledger ใดๆ ใน Phase นี้ ให้ ROI = 0
+    if (relevant.length === 0) return 0;
+
     const revenue = relevant
-      .filter(l => l.type_id === 2)
-      .reduce((s, l) => s + l.total_value, 0);
+      .filter(l => Number(l.type_id) === 2)
+      .reduce((s, l) => s + Number(l.total_value || 0), 0);
+
     const expenses = relevant
-      .filter(l => l.type_id === 1)
-      .reduce((s, l) => s + l.total_value, 0);
-    // ป้องกัน division by zero: ถ้าไม่มีค่าใช้จ่าย ROI = 0
-    return expenses > 0 ? ((revenue - expenses) / expenses) * 100 : 0;
+      .filter(l => Number(l.type_id) === 1)
+      .reduce((s, l) => s + Number(l.total_value || 0), 0);
+
+    // ต้นทุน (Cost): ใช้ค่าใช้จ่ายจริงจาก Ledger ถ้ามี (> 0) หรือใช้ initial_budget ของโปรเจกต์เป็น fallback
+    const effectiveCost = expenses > 0 ? expenses : Number(project?.initial_budget || 0);
+
+    // สูตร ROI (%): ((Revenue - Cost) / Cost) * 100
+    return effectiveCost > 0 ? ((revenue - effectiveCost) / effectiveCost) * 100 : 0;
   }
 }

@@ -1,102 +1,334 @@
-<div class="container py-4">
-  <!-- แสดงวงโหลดข้อมูล -->
-  <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5">
-    <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
-      <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
-    </div>
-    <p class="text-muted mt-3 fw-bold">กำลังโหลดรายงานผลการดำเนินงานจริง...</p>
-  </div>
-
-  <div *ngIf="!isLoading && project">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <nav aria-label="breadcrumb">
-          <ol class="breadcrumb mb-1">
-            <li class="breadcrumb-item"><a routerLink="/user/projects">Projects</a></li>
-            <li class="breadcrumb-item active">{{ project.project_name }}</li>
-          </ol>
-        </nav>
-        <h2 class="fw-bold mb-0">Performance Tracking (Actual)</h2>
-      </div>
-      <div class="d-flex gap-2">
-        <button [routerLink]="['/user/estimated-report', project.project_id]" class="btn btn-outline-secondary rounded-pill">
-          View Estimates
-        </button>
-        <button class="btn btn-primary rounded-pill px-4 shadow-sm">
-          <i class="bi bi-download me-2"></i> Export PDF
-        </button>
-      </div>
+<div class="container py-5">
+    <!-- Loading Spinner -->
+    <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5">
+        <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
+        </div>
+        <p class="text-muted mt-3 fw-bold">กำลังโหลดรายงานผลการดำเนินงานจริง...</p>
     </div>
 
-    <!-- Summary Cards -->
-    <div class="row g-3 mb-4 text-white">
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm p-4 rounded-4" style="background: linear-gradient(45deg, #ff5252, #f44336);">
-          <small class="opacity-75 text-uppercase fw-bold">Actual Total Expense</small>
-          <h2 class="fw-bold mb-0">฿{{ totalActExpense | number }}</h2>
-          <small class="opacity-75">Budget: ฿{{ totalEstExpense | number }}</small>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm p-4 rounded-4" style="background: linear-gradient(45deg, #00c853, #4caf50);">
-          <small class="opacity-75 text-uppercase fw-bold">Actual Total Revenue</small>
-          <h2 class="fw-bold mb-0">฿{{ totalActRevenue | number }}</h2>
-          <small class="opacity-75">Target: ฿{{ totalEstRevenue | number }}</small>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm p-4 rounded-4 bg-dark">
-          <small class="opacity-75 text-uppercase fw-bold">Current Net Profit</small>
-          <h2 class="fw-bold mb-0">฿{{ (totalActRevenue - totalActExpense) | number }}</h2>
-          <small [ngClass]="(totalActRevenue - totalActExpense) > (totalEstRevenue - totalEstExpense) ? 'text-success' : 'text-danger'">
-              vs Plan: {{ getVariance((totalEstRevenue - totalEstExpense), (totalActRevenue - totalActExpense)) | number }}
-          </small>
-        </div>
-      </div>
-    </div>
+    <div *ngIf="!isLoading && project">
 
-    <!-- Variance Analysis Table -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-      <div class="card-header bg-white py-3 border-bottom">
-        <h5 class="mb-0 fw-bold"><i class="bi bi-layout-text-sidebar-reverse me-2 text-primary"></i>Comparison Breakdown</h5>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="bg-light text-muted small">
-            <tr>
-              <th class="ps-4 py-3">PHASE / CATEGORY</th>
-              <th class="text-end">ESTIMATED (A)</th>
-              <th class="text-end">ACTUAL (B)</th>
-              <th class="text-end">VARIANCE (B-A)</th>
-              <th class="text-center">STATUS</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- ดึงข้อมูลจาก Actual Ledger มาเทียบ -->
-            <tr *ngFor="let act of actualLedger">
-              <td class="ps-4">
-                <div class="fw-bold">{{ act.note }}</div>
-                <small class="text-muted">{{ act.phase }} | {{ act.category_name || act.category_id }}</small>
-              </td>
-              <!-- หาตัวเปรียบเทียบในฝั่ง Estimated ที่เป็น category เดียวกัน -->
-              <td class="text-end text-secondary">
-                 <!-- แก้ไข: ใช้ getEstimatedMatch() หาค่า Estimated จาก category เดียวกัน -->
-                 ฿{{ getEstimatedMatch(act) | number }}
-              </td>
-              <td class="text-end fw-bold">฿{{ act.total_value | number }}</td>
-              <td class="text-end" [ngClass]="isOverBudget(act) ? 'text-danger' : 'text-success'">
-                 {{ act.type_id === 1 ? '-' : '+' }} ฿{{ (act.total_value - getEstimatedMatch(act)) | number }}
-              </td>
-              <td class="text-center">
-                <span class="badge rounded-pill" [ngClass]="isOverBudget(act) ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'">
-                  {{ isOverBudget(act) ? 'Over Budget' : 'On Track' }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <!-- ─── Header ──────────────────────────────────────────────────────── -->
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a routerLink="/user/projects">Projects</a></li>
+                        <li class="breadcrumb-item"><a [routerLink]="['/user/estimated-report', project.project_id]">{{ project.project_name }}</a></li>
+                        <li class="breadcrumb-item active">Actual Report</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold mb-1">{{ project.project_name }}</h2>
+                <p class="text-muted mb-0">
+                    PRJ-{{ project.project_id }}
+                    &nbsp;·&nbsp; Duration: {{ project.duration_months }} months
+                    &nbsp;·&nbsp; Initial Budget: ฿{{ project.initial_budget | number }}
+                    &nbsp;·&nbsp;
+                    <span class="badge bg-success">Actual</span>
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <button [routerLink]="['/user/estimated-report', project.project_id]"
+                    class="btn btn-outline-secondary rounded-pill px-4">
+                    <i class="bi bi-file-earmark-text me-1"></i>View Estimates
+                </button>
+                <button routerLink="/user/projects"
+                    class="btn btn-outline-dark rounded-pill px-4">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </button>
+            </div>
+        </div>
+
+        <!-- ─── Estimated vs Actual Side-by-Side KPI Comparison ──────────── -->
+        <div class="row g-4 mb-5">
+
+            <!-- Estimated Column -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                    <div class="card-header border-0 py-3 px-4"
+                        style="background: linear-gradient(135deg, #263238, #37474f);">
+                        <h6 class="fw-bold mb-0 text-white">
+                            <i class="bi bi-clipboard-data me-2"></i>Estimated KPIs
+                            <span class="badge bg-secondary ms-2">Plan</span>
+                        </h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center"
+                                    style="background: #e8eaf6">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">ROI</small>
+                                    <div class="fw-bold mt-1 fs-4"
+                                        [ngClass]="estROI >= 0 ? 'text-success' : 'text-danger'">
+                                        {{ estROI | number:'1.1-1' }}%
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center"
+                                    [style.background]="estNetProfit >= 0 ? '#e8f5e9' : '#ffebee'">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Net Profit</small>
+                                    <div class="fw-bold mt-1"
+                                        [ngClass]="estNetProfit >= 0 ? 'text-success' : 'text-danger'">
+                                        ฿{{ estNetProfit | number }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center" style="background: #e8f5e9">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Revenue</small>
+                                    <div class="fw-bold mt-1 text-success">฿{{ totalEstRevenue | number }}</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center" style="background: #ffebee">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Expense</small>
+                                    <div class="fw-bold mt-1 text-danger">฿{{ totalEstExpense | number }}</div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="rounded-3 p-3 text-center" style="background: #ede7f6">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Payback Period</small>
+                                    <div class="fw-bold mt-1 text-purple" style="color:#7b1fa2">
+                                        <ng-container *ngIf="estPaybackMonths !== null">
+                                            {{ estPaybackMonths | number:'1.1-1' }} months
+                                        </ng-container>
+                                        <ng-container *ngIf="estPaybackMonths === null">N/A</ng-container>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actual Column -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                    <div class="card-header border-0 py-3 px-4"
+                        style="background: linear-gradient(135deg, #1a237e, #283593);">
+                        <h6 class="fw-bold mb-0 text-white">
+                            <i class="bi bi-bar-chart-fill me-2"></i>Actual KPIs
+                            <span class="badge bg-success ms-2">Real</span>
+                        </h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center"
+                                    [style.background]="actROI >= estROI ? '#e8f5e9' : '#ffebee'">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">ROI</small>
+                                    <div class="fw-bold mt-1 fs-4"
+                                        [ngClass]="actROI >= 0 ? 'text-success' : 'text-danger'">
+                                        {{ actROI | number:'1.1-1' }}%
+                                    </div>
+                                    <!-- Delta vs Estimated -->
+                                    <small [ngClass]="actROI >= estROI ? 'text-success' : 'text-danger'">
+                                        {{ actROI - estROI >= 0 ? '+' : '' }}{{ (actROI - estROI) | number:'1.1-1' }}% vs plan
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center"
+                                    [style.background]="actNetProfit >= estNetProfit ? '#e8f5e9' : '#ffebee'">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Net Profit</small>
+                                    <div class="fw-bold mt-1"
+                                        [ngClass]="actNetProfit >= 0 ? 'text-success' : 'text-danger'">
+                                        ฿{{ actNetProfit | number }}
+                                    </div>
+                                    <small [ngClass]="actNetProfit >= estNetProfit ? 'text-success' : 'text-danger'">
+                                        {{ actNetProfit - estNetProfit >= 0 ? '+' : '' }}฿{{ (actNetProfit - estNetProfit) | number }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center"
+                                    [style.background]="totalActRevenue >= totalEstRevenue ? '#e8f5e9' : '#ffebee'">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Revenue</small>
+                                    <div class="fw-bold mt-1 text-success">฿{{ totalActRevenue | number }}</div>
+                                    <small [ngClass]="totalActRevenue >= totalEstRevenue ? 'text-success' : 'text-danger'">
+                                        {{ totalActRevenue - totalEstRevenue >= 0 ? '+' : '' }}฿{{ (totalActRevenue - totalEstRevenue) | number }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="rounded-3 p-3 text-center"
+                                    [style.background]="totalActExpense <= totalEstExpense ? '#e8f5e9' : '#ffebee'">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Expense</small>
+                                    <div class="fw-bold mt-1 text-danger">฿{{ totalActExpense | number }}</div>
+                                    <small [ngClass]="totalActExpense <= totalEstExpense ? 'text-success' : 'text-danger'">
+                                        {{ totalActExpense - totalEstExpense >= 0 ? '+' : '' }}฿{{ (totalActExpense - totalEstExpense) | number }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="rounded-3 p-3 text-center"
+                                    [style.background]="actPaybackMonths !== null && estPaybackMonths !== null && actPaybackMonths <= estPaybackMonths ? '#e8f5e9' : '#ede7f6'">
+                                    <small class="text-muted fw-bold d-block" style="font-size:0.7rem">Payback Period</small>
+                                    <div class="fw-bold mt-1" style="color:#7b1fa2">
+                                        <ng-container *ngIf="actPaybackMonths !== null">
+                                            {{ actPaybackMonths | number:'1.1-1' }} months
+                                        </ng-container>
+                                        <ng-container *ngIf="actPaybackMonths === null">N/A</ng-container>
+                                    </div>
+                                    <small class="text-muted" *ngIf="estPaybackMonths !== null && actPaybackMonths !== null">
+                                        Plan: {{ estPaybackMonths | number:'1.1-1' }} months
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Comparison Breakdown Table ──────────────────────────────────── -->
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+            <div class="card-header bg-white py-3 px-4 border-bottom">
+                <h5 class="mb-0 fw-bold">
+                    <i class="bi bi-layout-text-sidebar-reverse me-2 text-primary"></i>
+                    Detailed Comparison: Estimated vs Actual
+                </h5>
+            </div>
+
+            <!-- Revenue Items -->
+            <div class="px-4 pt-4 pb-2">
+                <h6 class="text-success fw-bold"><i class="bi bi-arrow-up-circle-fill me-2"></i>Revenue</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-muted small">
+                        <tr>
+                            <th class="ps-4 py-3">Category / Note</th>
+                            <th class="text-end">ESTIMATED (A)</th>
+                            <th class="text-end">ACTUAL (B)</th>
+                            <th class="text-end">VARIANCE (B-A)</th>
+                            <th class="text-center">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let act of getActualRevenues()">
+                            <td class="ps-4">
+                                <div class="fw-bold">{{ act.note }}</div>
+                                <small class="text-muted">{{ act.category_name || act.category_id }}</small>
+                            </td>
+                            <td class="text-end text-secondary">฿{{ getEstimatedMatch(act) | number }}</td>
+                            <td class="text-end fw-bold text-success">฿{{ act.total_value | number }}</td>
+                            <td class="text-end fw-bold"
+                                [ngClass]="isOverBudget(act) ? 'text-danger' : 'text-success'">
+                                {{ getVarianceSign(act) }}฿{{ getVariance(act) | number }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge rounded-pill"
+                                    [ngClass]="isOverBudget(act) ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'">
+                                    {{ isOverBudget(act) ? 'Under Target' : 'On Track' }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr *ngIf="getActualRevenues().length === 0">
+                            <td colspan="5" class="text-center text-muted py-3">No revenue entries</td>
+                        </tr>
+                    </tbody>
+                    <tfoot *ngIf="getActualRevenues().length > 0" class="table-success">
+                        <tr>
+                            <td class="ps-4 fw-bold">Total Revenue</td>
+                            <td class="text-end fw-bold">฿{{ totalEstRevenue | number }}</td>
+                            <td class="text-end fw-bold">฿{{ totalActRevenue | number }}</td>
+                            <td class="text-end fw-bold"
+                                [ngClass]="totalActRevenue >= totalEstRevenue ? 'text-success' : 'text-danger'">
+                                {{ totalActRevenue - totalEstRevenue >= 0 ? '+' : '' }}฿{{ (totalActRevenue - totalEstRevenue) | number }}
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Expense Items -->
+            <div class="px-4 pt-4 pb-2 border-top mt-2">
+                <h6 class="text-danger fw-bold"><i class="bi bi-arrow-down-circle-fill me-2"></i>Expense</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-muted small">
+                        <tr>
+                            <th class="ps-4 py-3">Category / Note</th>
+                            <th class="text-end">ESTIMATED (A)</th>
+                            <th class="text-end">ACTUAL (B)</th>
+                            <th class="text-end">VARIANCE (B-A)</th>
+                            <th class="text-center">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let act of getActualExpenses()">
+                            <td class="ps-4">
+                                <div class="fw-bold">{{ act.note }}</div>
+                                <small class="text-muted">{{ act.category_name || act.category_id }}</small>
+                            </td>
+                            <td class="text-end text-secondary">฿{{ getEstimatedMatch(act) | number }}</td>
+                            <td class="text-end fw-bold text-danger">฿{{ act.total_value | number }}</td>
+                            <td class="text-end fw-bold"
+                                [ngClass]="isOverBudget(act) ? 'text-danger' : 'text-success'">
+                                {{ getVarianceSign(act) }}฿{{ getVariance(act) | number }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge rounded-pill"
+                                    [ngClass]="isOverBudget(act) ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'">
+                                    {{ isOverBudget(act) ? 'Over Budget' : 'On Track' }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr *ngIf="getActualExpenses().length === 0">
+                            <td colspan="5" class="text-center text-muted py-3">No expense entries</td>
+                        </tr>
+                    </tbody>
+                    <tfoot *ngIf="getActualExpenses().length > 0" class="table-danger">
+                        <tr>
+                            <td class="ps-4 fw-bold">Total Expense</td>
+                            <td class="text-end fw-bold">฿{{ totalEstExpense | number }}</td>
+                            <td class="text-end fw-bold">฿{{ totalActExpense | number }}</td>
+                            <td class="text-end fw-bold"
+                                [ngClass]="totalActExpense <= totalEstExpense ? 'text-success' : 'text-danger'">
+                                {{ totalActExpense - totalEstExpense >= 0 ? '+' : '' }}฿{{ (totalActExpense - totalEstExpense) | number }}
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- ─── Net Profit Summary Row ─────────────────────────────────────── -->
+        <div class="card border-0 shadow-sm rounded-4 p-4 mb-4"
+            style="background: linear-gradient(135deg, #0d1b2a, #1b2a41); color: #fff">
+            <div class="row text-center g-3 align-items-center">
+                <div class="col-md-4">
+                    <small class="opacity-75 fw-bold text-uppercase d-block" style="font-size:0.7rem">Estimated Net Profit</small>
+                    <div class="fs-3 fw-bold" [ngClass]="estNetProfit >= 0 ? 'text-success' : 'text-danger'">
+                        ฿{{ estNetProfit | number }}
+                    </div>
+                    <small class="opacity-60">ROI: {{ estROI | number:'1.1-1' }}%</small>
+                </div>
+                <div class="col-md-4 border-start border-end border-secondary">
+                    <small class="opacity-75 fw-bold text-uppercase d-block" style="font-size:0.7rem">Actual Net Profit</small>
+                    <div class="fs-3 fw-bold" [ngClass]="actNetProfit >= 0 ? 'text-success' : 'text-danger'">
+                        ฿{{ actNetProfit | number }}
+                    </div>
+                    <small class="opacity-60">ROI: {{ actROI | number:'1.1-1' }}%</small>
+                </div>
+                <div class="col-md-4">
+                    <small class="opacity-75 fw-bold text-uppercase d-block" style="font-size:0.7rem">Performance vs Plan</small>
+                    <div class="fs-3 fw-bold"
+                        [ngClass]="actNetProfit >= estNetProfit ? 'text-success' : 'text-danger'">
+                        {{ actNetProfit - estNetProfit >= 0 ? '+' : '' }}฿{{ (actNetProfit - estNetProfit) | number }}
+                    </div>
+                    <small [ngClass]="actROI >= estROI ? 'text-success' : 'text-danger'">
+                        ROI Delta: {{ actROI - estROI >= 0 ? '+' : '' }}{{ (actROI - estROI) | number:'1.1-1' }}%
+                    </small>
+                </div>
+            </div>
+        </div>
+
     </div>
-  </div>
 </div>

@@ -16,6 +16,13 @@ export class EstimatedReport implements OnInit {
   ledger: ProjectLedger[] = [];
   isLoading: boolean = false;
 
+  // ─── Summary Metrics (Estimated Phase) ───────────────────────────────────
+  totalEstRevenue = 0;
+  totalEstExpense = 0;
+  estNetProfit = 0;
+  estROI = 0;
+  estPaybackMonths: number | null = null; // null = ไม่สามารถคำนวณได้
+
   constructor(
     private route: ActivatedRoute,
     private projectService: ProjectService
@@ -32,7 +39,9 @@ export class EstimatedReport implements OnInit {
     }).subscribe({
       next: (result) => {
         this.project = result.project;
-        this.ledger = result.ledger;
+        // ใช้เฉพาะ Estimated phase สำหรับหน้านี้
+        this.ledger = result.ledger.filter(l => l.phase === 'Estimated');
+        this.calculateMetrics();
         this.isLoading = false;
       },
       error: (err) => {
@@ -42,50 +51,43 @@ export class EstimatedReport implements OnInit {
     });
   }
 
-  // แยก Ledger ตามประเภทเพื่อแสดงในตาราง
+  // ─── คำนวณ KPI ทั้งหมดสำหรับ Estimated Phase ─────────────────────────────
+  private calculateMetrics(): void {
+    this.totalEstRevenue = this.sumByType(this.ledger, 2);
+    this.totalEstExpense = this.sumByType(this.ledger, 1);
+    this.estNetProfit = this.totalEstRevenue - this.totalEstExpense;
+
+    // ROI (%) = ((Revenue - Expense) / Expense) × 100
+    this.estROI = this.totalEstExpense > 0
+      ? ((this.totalEstRevenue - this.totalEstExpense) / this.totalEstExpense) * 100
+      : 0;
+
+    // Payback Period (เดือน) = Expense / (Revenue / duration_months)
+    // หมายความว่า: ใช้เวลากี่เดือนถึงจะคืนทุน
+    const duration = Number(this.project?.duration_months || 0);
+    const monthlyRevenue = duration > 0 ? this.totalEstRevenue / duration : 0;
+    this.estPaybackMonths = (monthlyRevenue > 0 && this.totalEstExpense > 0)
+      ? this.totalEstExpense / monthlyRevenue
+      : null;
+  }
+
+  private sumByType(list: ProjectLedger[], typeId: number): number {
+    return list
+      .filter(l => Number(l.type_id) === typeId)
+      .reduce((sum, l) => sum + Number(l.total_value || 0), 0);
+  }
+
+  // ─── Getters สำหรับแสดงรายการในตาราง ─────────────────────────────────────
   getExpenses(): ProjectLedger[] {
-    return this.ledger.filter(l => l.type_id === 1); // type 1 = Expense
+    return this.ledger.filter(l => Number(l.type_id) === 1);
   }
 
   getRevenues(): ProjectLedger[] {
-    return this.ledger.filter(l => l.type_id === 2); // type 2 = Revenue
+    return this.ledger.filter(l => Number(l.type_id) === 2);
   }
 
-  // ดึงรายการ Category ที่ไม่ซ้ำกันทั้งหมดในโปรเจกต์นี้
-  // Set ตัดค่าซ้ำออกโดยอัตโนมัติ, spread [...] แปลงกลับเป็น array
+  // ─── ดึงรายการ Category ที่ไม่ซ้ำกัน (ใช้ใน Variance Table ถ้า Actual มีข้อมูล) ───
   getUniqueCategories(): string[] {
-    return [...new Set(this.ledger.map(l => l.category_id))];
-  }
-
-  // สร้างข้อมูลเปรียบเทียบรายแถว สำหรับ Variance Breakdown Table
-  getComparisonRow(category: string) {
-    const items = this.ledger.filter(l => l.category_id === category);
-
-    // ค้นหายอดของแต่ละ Phase — optional chaining (?.) ป้องกัน error ถ้าไม่พบ
-    const estimated = items.find(l => l.phase === 'Estimated')?.total_value || 0;
-    const actual    = items.find(l => l.phase === 'Actual')?.total_value    || 0;
-    const variance  = actual - estimated;
-
-    // ดึง type_id จาก item แรกที่พบ (category เดียวกันมี type เดียวกันเสมอ)
-    const type_id = items[0]?.type_id ?? 1;
-
-    // ─── Logic สีที่ถูกต้องตามประเภทรายการ ────────────────────────────────
-    // Expense (type_id=1): variance บวก = จ่ายเกินงบ → ไม่ดี (isGood = false)
-    //                      variance ลบ  = ประหยัดได้  → ดี   (isGood = true)
-    // Revenue (type_id=2): variance บวก = ได้มากกว่าเป้า → ดี   (isGood = true)
-    //                      variance ลบ  = ได้น้อยกว่าเป้า → ไม่ดี (isGood = false)
-    const isGood = type_id === 1 ? variance <= 0 : variance >= 0;
-
-    return {
-      category,
-      type_id,
-      note: items[0]?.note || '-',
-      estimated,
-      actual,
-      variance,
-      isGood,
-      // status ยังคงไว้สำหรับ icon arrow
-      status: variance > 0 ? 'up' : (variance < 0 ? 'down' : 'stable')
-    };
+    return [...new Set(this.ledger.map(l => String(l.category_id)))];
   }
 }

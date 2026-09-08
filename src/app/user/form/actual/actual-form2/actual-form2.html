@@ -22,37 +22,65 @@
     </div>
   </div>
 
-  <div class="row g-4">
+  <!-- Loading state -->
+  <div *ngIf="isLoading && actualRows.length === 0" class="text-center py-5">
+    <div class="spinner-border text-success" role="status" style="width: 2.5rem; height: 2.5rem;">
+      <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
+    </div>
+    <p class="text-muted mt-3 fw-bold">กำลังโหลดข้อมูล Estimated เพื่อเตรียม Pre-fill...</p>
+  </div>
+
+  <div class="row g-4" *ngIf="actualRows.length > 0">
     <!-- คอลัมน์ซ้าย: บันทึกข้อมูล Actual -->
     <div class="col-lg-8">
       <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
         <h5 class="fw-bold mb-4">Actual Financial Records</h5>
         
         <div class="row g-2 text-muted small fw-bold mb-2 text-uppercase" style="letter-spacing: 0.5px;">
-          <div class="col-4">Category</div>
-          <div class="col-4">Note</div>
-          <div class="col-4 text-end">Actual Amount (THB)</div>
+          <div class="col-2">Type</div>
+          <div class="col-2">Category</div>
+          <div class="col-2">Date</div>
+          <div class="col-3">Note</div>
+          <div class="col-2 text-end">Amount (THB)</div>
+          <div class="col-1"></div>
         </div>
 
         <div class="d-flex flex-column gap-3 mb-4">
-          <div class="row g-2 align-items-center" *ngFor="let row of actualRows">
-            <div class="col-4">
-              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none" [(ngModel)]="row.category">
+          <div class="row g-2 align-items-center" *ngFor="let row of actualRows; let i = index">
+            <div class="col-2">
+              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none small" [(ngModel)]="row.type_id">
+                <option [ngValue]="1">Expense</option>
+                <option [ngValue]="2">Revenue</option>
+              </select>
+            </div>
+            <div class="col-2">
+              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none small" [(ngModel)]="row.category">
                 <option value="REV001">Revenue Generation</option>
                 <option value="CAT002">Development Cost (INV)</option>
                 <option value="CAT001">Operations Cost (OPC)</option>
               </select>
             </div>
-            <div class="col-4">
-              <input type="text" class="form-control bg-light border-0 rounded-pill px-3 shadow-none" [(ngModel)]="row.note">
+            <div class="col-2">
+              <input type="date" class="form-control bg-light border-0 rounded-pill px-3 shadow-none small"
+                [(ngModel)]="row.transaction_date">
             </div>
-            <div class="col-4 text-end">
-              <input type="number" class="form-control bg-light border-0 rounded-pill px-3 shadow-none text-end fw-bold" [(ngModel)]="row.amount">
+            <div class="col-3">
+              <input type="text" class="form-control bg-light border-0 rounded-pill px-3 shadow-none small" [(ngModel)]="row.note">
+            </div>
+            <div class="col-2 text-end">
+              <input type="number" class="form-control bg-light border-0 rounded-pill px-3 shadow-none text-end fw-bold small" [(ngModel)]="row.amount">
+            </div>
+            <div class="col-1 text-center">
+              <button type="button" class="btn btn-sm btn-outline-danger rounded-circle border-0"
+                (click)="removeRow(i)" *ngIf="actualRows.length > 1" title="ลบรายการนี้">
+                <i class="bi bi-x-lg"></i>
+              </button>
             </div>
           </div>
         </div>
 
-        <button class="btn btn-outline-light text-muted border-2 rounded-3 py-3 w-100 fw-bold" style="border-style: dashed !important;">
+        <button type="button" (click)="addRow()"
+          class="btn btn-outline-light text-muted border-2 rounded-3 py-3 w-100 fw-bold" style="border-style: dashed !important;">
           <i class="bi bi-plus-lg me-1"></i> Add Actual Category
         </button>
       </div>
@@ -68,14 +96,18 @@
             <small class="text-white-50">Initial Budget</small>
             <span class="fw-bold">THB {{ initialBudget | number }}</span>
           </div>
-          <div class="d-flex justify-content-between mb-4 border-bottom border-white-10 pb-2">
+          <div class="d-flex justify-content-between mb-2">
             <small class="text-white-50">Total Actual Spent</small>
             <span class="fw-bold text-white">THB {{ getTotalActualSpent() | number }}</span>
+          </div>
+          <div class="d-flex justify-content-between mb-4 border-bottom border-white-10 pb-2">
+            <small class="text-white-50">Total Actual Revenue</small>
+            <span class="fw-bold text-success">THB {{ getTotalActualRevenue() | number }}</span>
           </div>
 
           <div class="d-flex justify-content-between align-items-center mb-1">
             <small class="text-white-50">Budget Variance</small>
-            <h4 class="fw-bold mb-0" [ngClass]="getVariance() >= 0 ? 'text-success' : 'text-danger'" style="color: #00e676 !important;">
+            <h4 class="fw-bold mb-0" [ngClass]="getVariance() >= 0 ? 'text-success' : 'text-danger'">
               THB {{ getVariance() | number }}
             </h4>
           </div>

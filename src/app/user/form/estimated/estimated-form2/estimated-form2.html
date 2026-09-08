@@ -29,35 +29,49 @@
         <h5 class="fw-bold mb-4">Estimated Budget Allocation</h5>
 
         <div class="row g-2 text-muted small fw-bold mb-2">
-          <div class="col-4">CATEGORY</div>
-          <div class="col-4">NOTE</div>
-          <div class="col-4">ESTIMATED AMOUNT (THB)</div>
+          <div class="col-2">TYPE</div>
+          <div class="col-3">CATEGORY</div>
+          <div class="col-3">NOTE</div>
+          <div class="col-3">ESTIMATED AMOUNT (THB)</div>
+          <div class="col-1"></div>
         </div>
 
         <!-- *ngFor วน render ทุกแถวจาก budgetRows array ใน Component -->
         <!-- [(ngModel)] เชื่อม input กับข้อมูลแบบ 2-way: พิมพ์แล้วค่าใน component เปลี่ยนทันที -->
         <div class="d-flex flex-column gap-3 mb-4">
           <div class="row g-2 align-items-center" *ngFor="let row of budgetRows; let i = index">
-            <div class="col-4">
+            <div class="col-2">
+              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none" [(ngModel)]="row.type_id">
+                <option [ngValue]="1">Expense</option>
+                <option [ngValue]="2">Revenue</option>
+              </select>
+            </div>
+            <div class="col-3">
               <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none" [(ngModel)]="row.category">
                 <option value="REV001">Revenue Generation</option>
                 <option value="CAT002">Development Cost (INV)</option>
                 <option value="CAT001">Operations Cost (OPC)</option>
               </select>
             </div>
-            <div class="col-4">
+            <div class="col-3">
               <input type="text" class="form-control bg-light border-0 rounded-pill px-3 shadow-none"
                 [(ngModel)]="row.note">
             </div>
-            <div class="col-4 text-end">
+            <div class="col-3 text-end">
               <input type="number" class="form-control bg-light border-0 rounded-pill px-3 shadow-none text-end"
                 [(ngModel)]="row.amount">
+            </div>
+            <div class="col-1 text-center">
+              <button type="button" class="btn btn-sm btn-outline-danger rounded-circle border-0" 
+                (click)="removeRow(i)" *ngIf="budgetRows.length > 1" title="ลบรายการนี้">
+                <i class="bi bi-x-lg"></i>
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- ปุ่มเพิ่มแถว Budget (สำหรับ implement ฟีเจอร์ dynamic add row ในอนาคต) -->
-        <button class="btn btn-outline-light text-muted border border-dashed rounded-3 py-3 w-100 fw-bold shadow-none">
+        <button type="button" (click)="addRow()"
+          class="btn btn-outline-light text-muted border border-dashed rounded-3 py-3 w-100 fw-bold shadow-none">
           <i class="bi bi-plus-lg me-1"></i> Add Budget Category
         </button>
       </div>

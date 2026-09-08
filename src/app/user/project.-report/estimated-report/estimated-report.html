@@ -1,5 +1,5 @@
 <div class="container py-5">
-    <!-- แสดงวงโหลดข้อมูล -->
+    <!-- Loading Spinner -->
     <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5">
         <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
             <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
@@ -8,102 +8,213 @@
     </div>
 
     <div *ngIf="!isLoading && project">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <!-- ─── Header ──────────────────────────────────────────────────────── -->
+        <div class="d-flex justify-content-between align-items-start mb-4">
             <div>
-                <h2 class="fw-bold mb-0">{{ project.project_name }}</h2>
-                <p class="text-muted">Project ID: PRJ-2026-{{ project.project_id }} | Status: <b>{{ project.status }}</b>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-1">
+                        <li class="breadcrumb-item"><a routerLink="/user/projects">Projects</a></li>
+                        <li class="breadcrumb-item active">{{ project.project_name }}</li>
+                    </ol>
+                </nav>
+                <h2 class="fw-bold mb-1">{{ project.project_name }}</h2>
+                <p class="text-muted mb-0">
+                    PRJ-{{ project.project_id }}
+                    &nbsp;·&nbsp; Duration: {{ project.duration_months }} months
+                    &nbsp;·&nbsp; Initial Budget: ฿{{ project.initial_budget | number }}
+                    &nbsp;·&nbsp;
+                    <span class="badge"
+                        [ngClass]="project.status === 'Actual' ? 'bg-success' : 'bg-warning text-dark'">
+                        {{ project.status }}
+                    </span>
                 </p>
             </div>
-            <button [routerLink]="['/user/actual-report', project.project_id]"
-                class="btn btn-outline-primary rounded-pill px-4 shadow-sm"
-                *ngIf="project.status === 'Actual'">
-                <i class="bi bi-graph-up-arrow me-2"></i> View Actual Performance
-            </button>
-            <button routerLink="/user/projects" class="btn btn-outline-dark rounded-pill px-4">Back to List</button>
+            <div class="d-flex gap-2 flex-wrap justify-content-end">
+                <button [routerLink]="['/user/actual-report', project.project_id]"
+                    class="btn btn-success rounded-pill px-4 shadow-sm"
+                    *ngIf="project.status === 'Actual'">
+                    <i class="bi bi-graph-up-arrow me-2"></i>View Actual Report
+                </button>
+                <button routerLink="/user/projects" class="btn btn-outline-secondary rounded-pill px-4">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </button>
+            </div>
         </div>
 
-
-        <div class="row g-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm rounded-4 p-4">
-                    <h5 class="fw-bold mb-3 text-danger">Expenses Breakdown</h5>
-                    <table class="table align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Category</th>
-                                <th>Note</th>
-                                <th>Phase</th>
-                                <th class="text-end">Amount (THB)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr *ngFor="let item of getExpenses()">
-                                <td>{{ item.category_name || item.category_id }}</td>
-                                <td>{{ item.note }}</td>
-                                <td><span class="badge"
-                                        [ngClass]="item.phase === 'Actual' ? 'bg-success' : 'bg-secondary'">{{ item.phase
-                                        }}</span></td>
-                                <td class="text-end fw-bold">{{ item.total_value | number }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+        <!-- ─── ROI Summary Cards ─────────────────────────────────────────── -->
+        <div class="row g-3 mb-5">
+            <!-- ROI % -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 h-100 shadow-sm rounded-4 p-3 text-center"
+                    style="background: linear-gradient(135deg, #1a237e, #283593); color:#fff">
+                    <small class="opacity-75 fw-bold text-uppercase" style="font-size:0.7rem">EST. ROI</small>
+                    <div class="fw-bold mt-1" style="font-size:1.6rem"
+                        [ngClass]="estROI >= 0 ? 'text-success' : 'text-danger'">
+                        {{ estROI | number:'1.1-1' }}%
+                    </div>
+                    <small class="opacity-60">Return on Investment</small>
                 </div>
             </div>
 
-            <div class="col-12" *ngIf="project.status === 'Actual'">
-                <div class="card border-0 shadow-sm rounded-4 p-4 mt-4">
-                    <h5 class="fw-bold mb-4">Variance Breakdown</h5>
+            <!-- Net Profit -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 h-100 shadow-sm rounded-4 p-3 text-center"
+                    [style.background]="estNetProfit >= 0
+                        ? 'linear-gradient(135deg, #1b5e20, #388e3c)'
+                        : 'linear-gradient(135deg, #b71c1c, #d32f2f)'"
+                    style="color:#fff">
+                    <small class="opacity-75 fw-bold text-uppercase" style="font-size:0.7rem">Net Profit</small>
+                    <div class="fw-bold mt-1" style="font-size:1.4rem">
+                        ฿{{ estNetProfit | number }}
+                    </div>
+                    <small class="opacity-60">Revenue – Expense</small>
+                </div>
+            </div>
 
+            <!-- Total Revenue -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 h-100 shadow-sm rounded-4 p-3 text-center"
+                    style="background: linear-gradient(135deg, #004d40, #00796b); color:#fff">
+                    <small class="opacity-75 fw-bold text-uppercase" style="font-size:0.7rem">Total Revenue</small>
+                    <div class="fw-bold mt-1" style="font-size:1.4rem">฿{{ totalEstRevenue | number }}</div>
+                    <small class="opacity-60">Estimated income</small>
+                </div>
+            </div>
+
+            <!-- Total Expense -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 h-100 shadow-sm rounded-4 p-3 text-center"
+                    style="background: linear-gradient(135deg, #bf360c, #e64a19); color:#fff">
+                    <small class="opacity-75 fw-bold text-uppercase" style="font-size:0.7rem">Total Expense</small>
+                    <div class="fw-bold mt-1" style="font-size:1.4rem">฿{{ totalEstExpense | number }}</div>
+                    <small class="opacity-60">Estimated cost</small>
+                </div>
+            </div>
+
+            <!-- Payback Period -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 h-100 shadow-sm rounded-4 p-3 text-center"
+                    style="background: linear-gradient(135deg, #4527a0, #7b1fa2); color:#fff">
+                    <small class="opacity-75 fw-bold text-uppercase" style="font-size:0.7rem">Payback Period</small>
+                    <div class="fw-bold mt-1" style="font-size:1.4rem">
+                        <ng-container *ngIf="estPaybackMonths !== null">
+                            {{ estPaybackMonths | number:'1.1-1' }} <span style="font-size:0.9rem">mo.</span>
+                        </ng-container>
+                        <ng-container *ngIf="estPaybackMonths === null">
+                            <span style="font-size:1rem; opacity:0.7">N/A</span>
+                        </ng-container>
+                    </div>
+                    <small class="opacity-60">Months to break-even</small>
+                </div>
+            </div>
+
+            <!-- Duration -->
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 h-100 shadow-sm rounded-4 p-3 text-center"
+                    style="background: linear-gradient(135deg, #37474f, #546e7a); color:#fff">
+                    <small class="opacity-75 fw-bold text-uppercase" style="font-size:0.7rem">Duration</small>
+                    <div class="fw-bold mt-1" style="font-size:1.4rem">
+                        {{ project.duration_months }} <span style="font-size:0.9rem">mo.</span>
+                    </div>
+                    <small class="opacity-60">Project duration</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Revenue Breakdown ──────────────────────────────────────────── -->
+        <div class="row g-4 mb-4">
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                    <div class="card-header bg-success bg-opacity-10 border-0 py-3 px-4">
+                        <h6 class="fw-bold mb-0 text-success">
+                            <i class="bi bi-arrow-up-circle-fill me-2"></i>Revenue Items
+                        </h6>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table align-middle">
-                            <thead class="text-muted small fw-bold">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light text-muted small">
                                 <tr>
-                                    <th class="border-0">CATEGORY</th>
-                                    <th class="border-0 text-end">ESTIMATED (THB)</th>
-                                    <th class="border-0 text-end">ACTUAL (THB)</th>
-                                    <th class="border-0 text-end">VARIANCE</th>
-                                    <th class="border-0 text-center">STATUS</th>
+                                    <th class="ps-4">Category</th>
+                                    <th>Note</th>
+                                    <th class="text-end pe-4">Amount (THB)</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <!-- ใช้ ng-container + as pattern เพื่อเรียก getComparisonRow() แค่ครั้งเดียวต่อแถว -->
-                                <ng-container *ngFor="let cat of getUniqueCategories()">
-                                <ng-container *ngIf="getComparisonRow(cat) as row">
-                                <tr>
-                                    <td class="py-3">
-                                        <div class="fw-bold text-dark">{{ row.category }}</div>
-                                        <small class="text-muted">{{ row.note }}</small>
-                                    </td>
-
-                                    <td class="text-end text-secondary">{{ row.estimated | number }}</td>
-
-                                    <td class="text-end fw-bold">{{ row.actual | number }}</td>
-
-                                    <!-- สีถูกต้องตาม type:
-                                         Expense บวก = เกินงบ (แดง) | Expense ลบ = ประหยัด (เขียว)
-                                         Revenue บวก = ดีกว่าเป้า (เขียว) | Revenue ลบ = ต่ำกว่าเป้า (แดง) -->
-                                    <td class="text-end fw-bold" [ngClass]="row.isGood ? 'text-success' : 'text-danger'">
-                                        {{ row.variance > 0 ? '+' : '' }}{{ row.variance | number }}
-                                    </td>
-
-                                    <td class="text-center">
-                                        <i class="bi" [ngClass]="{
-                                            'bi-arrow-up-right':   row.status === 'up',
-                                            'bi-arrow-down-right': row.status === 'down',
-                                            'bi-dash':             row.status === 'stable',
-                                            'text-success': row.isGood,
-                                            'text-danger':  !row.isGood && row.status !== 'stable',
-                                            'text-muted':   row.status === 'stable'
-                                        }"></i>
-                                    </td>
+                                <tr *ngFor="let item of getRevenues()">
+                                    <td class="ps-4 fw-bold">{{ item.category_name || item.category_id }}</td>
+                                    <td class="text-muted">{{ item.note }}</td>
+                                    <td class="text-end fw-bold text-success pe-4">฿{{ item.total_value | number }}</td>
                                 </tr>
-                                </ng-container>
-                                </ng-container>
+                                <tr *ngIf="getRevenues().length === 0">
+                                    <td colspan="3" class="text-center text-muted py-4">No revenue items</td>
+                                </tr>
                             </tbody>
+                            <tfoot *ngIf="getRevenues().length > 0">
+                                <tr class="table-success">
+                                    <td colspan="2" class="ps-4 fw-bold">Total Revenue</td>
+                                    <td class="text-end fw-bold pe-4">฿{{ totalEstRevenue | number }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ─── Expense Breakdown ─────────────────────────────────────── -->
+            <div class="col-12 col-lg-6">
+                <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+                    <div class="card-header bg-danger bg-opacity-10 border-0 py-3 px-4">
+                        <h6 class="fw-bold mb-0 text-danger">
+                            <i class="bi bi-arrow-down-circle-fill me-2"></i>Expense Items
+                        </h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light text-muted small">
+                                <tr>
+                                    <th class="ps-4">Category</th>
+                                    <th>Note</th>
+                                    <th class="text-end pe-4">Amount (THB)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let item of getExpenses()">
+                                    <td class="ps-4 fw-bold">{{ item.category_name || item.category_id }}</td>
+                                    <td class="text-muted">{{ item.note }}</td>
+                                    <td class="text-end fw-bold text-danger pe-4">฿{{ item.total_value | number }}</td>
+                                </tr>
+                                <tr *ngIf="getExpenses().length === 0">
+                                    <td colspan="3" class="text-center text-muted py-4">No expense items</td>
+                                </tr>
+                            </tbody>
+                            <tfoot *ngIf="getExpenses().length > 0">
+                                <tr class="table-danger">
+                                    <td colspan="2" class="ps-4 fw-bold">Total Expense</td>
+                                    <td class="text-end fw-bold pe-4">฿{{ totalEstExpense | number }}</td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- ─── CTA: Record Actual ────────────────────────────────────────── -->
+        <div *ngIf="project.status !== 'Actual'"
+            class="card border-0 shadow-sm rounded-4 p-4 text-center"
+            style="background: linear-gradient(135deg, #e8f5e9, #f1f8e9)">
+            <i class="bi bi-clipboard-data text-success" style="font-size: 2rem;"></i>
+            <h5 class="fw-bold mt-2 mb-1">Ready to record actual results?</h5>
+            <p class="text-muted mb-3">Once your project is underway, record actual revenue and expenses to compare against this estimate.</p>
+            <div>
+                <button [routerLink]="['/user/actual-form1']"
+                    [queryParams]="{ projectId: project.project_id }"
+                    class="btn btn-success rounded-pill px-4 shadow-sm fw-bold">
+                    <i class="bi bi-plus-circle me-2"></i>Record Actual Data
+                </button>
+            </div>
+        </div>
+
     </div>
 </div>

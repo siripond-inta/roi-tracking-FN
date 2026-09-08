@@ -23,6 +23,8 @@ interface BudgetRow {
 export class EstimatedForm2 implements OnInit {
   projectName: string = '';
   initialBudget: number = 0;
+  durationMonths: number = 12;
+  projectTypeId: number = 1;
   isLoading: boolean = false; // สำหรับบอกสถานะบันทึกข้อมูล
 
   // ข้อมูลแถว Budget ทุกแถวอยู่ที่นี่
@@ -45,6 +47,8 @@ export class EstimatedForm2 implements OnInit {
       const data = JSON.parse(temp);
       this.projectName = data.project_name || 'New Project';
       this.initialBudget = Number(data.initial_budget) || 0;
+      this.durationMonths = Number(data.duration_months) || 12;
+      this.projectTypeId = Number(data.project_type_id) || 1;
     }
   }
 
@@ -56,6 +60,17 @@ export class EstimatedForm2 implements OnInit {
   // งบคงเหลือ — ติดลบแปลว่าเกินงบ
   getRemaining(): number {
     return this.initialBudget - this.getTotalEstimated();
+  }
+
+  // เพิ่ม/ลบแถว Budget ─────────────────────────────────────────────────────
+  addRow(): void {
+    this.budgetRows.push({ type_id: 1, category: 'CAT001', note: '', amount: 0 });
+  }
+
+  removeRow(index: number): void {
+    if (this.budgetRows.length > 1) {
+      this.budgetRows.splice(index, 1);
+    }
   }
 
   // เปอร์เซ็นต์การใช้งบ — cap ที่ 100 เพื่อไม่ให้ progress bar ล้น
@@ -75,8 +90,8 @@ export class EstimatedForm2 implements OnInit {
 
     const newProject: Partial<Project> = {
       project_name: this.projectName,
-      project_type_id: 1,
-      duration_months: 12,
+      project_type_id: this.projectTypeId,
+      duration_months: this.durationMonths,
       initial_budget: this.initialBudget
     };
 

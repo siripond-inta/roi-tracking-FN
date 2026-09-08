@@ -22,28 +22,48 @@ export class ProjectService {
   // 1. ดึงรายการโปรเจกต์ทั้งหมดจาก MySQL
   getProjects(): Observable<Project[]> {
     return this.http.get<ApiResponse<Project[]>>(this.API_URL).pipe(
-      map(res => res.data)
+      map(res => (res.data || []).map(p => ({
+        ...p,
+        project_id: Number(p.project_id),
+        initial_budget: Number(p.initial_budget || 0)
+      })))
     );
   }
 
   // 2. ดึงข้อมูลโปรเจกต์เดียวด้วย ID
   getProjectById(id: number): Observable<Project> {
     return this.http.get<ApiResponse<Project>>(`${this.API_URL}/${id}`).pipe(
-      map(res => res.data)
+      map(res => ({
+        ...res.data,
+        project_id: Number(res.data.project_id),
+        initial_budget: Number(res.data.initial_budget || 0)
+      }))
     );
   }
 
   // 3. ดึงรายการ Ledger ทั้งหมด (ใช้คำนวณ Summary สถิติที่หน้า Dashboard)
   getLedgers(): Observable<ProjectLedger[]> {
     return this.http.get<ApiResponse<ProjectLedger[]>>(`${this.API_URL}/ledgers`).pipe(
-      map(res => res.data)
+      map(res => (res.data || []).map(l => ({
+        ...l,
+        ledger_id: Number(l.ledger_id),
+        project_id: Number(l.project_id),
+        type_id: Number(l.type_id),
+        total_value: Number(l.total_value || 0)
+      })))
     );
   }
 
   // 4. ดึงรายการ Ledger ของโปรเจกต์ที่ระบุ
   getLedgersByProjectId(projectId: number): Observable<ProjectLedger[]> {
     return this.http.get<ApiResponse<ProjectLedger[]>>(`${this.API_URL}/${projectId}/ledgers`).pipe(
-      map(res => res.data)
+      map(res => (res.data || []).map(l => ({
+        ...l,
+        ledger_id: Number(l.ledger_id),
+        project_id: Number(l.project_id),
+        type_id: Number(l.type_id),
+        total_value: Number(l.total_value || 0)
+      })))
     );
   }
 

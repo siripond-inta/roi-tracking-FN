@@ -26,17 +26,19 @@
         <div class="col-md-6 mb-3 mb-md-0">
           <label class="form-label text-muted small fw-bold">Project Type</label>
           <div class="position-relative">
-            <select class="form-select bg-light border-0 rounded-pill px-4 py-3 shadow-none appearance-none">
-              <option selected>Revenue Project</option>
-              <option value="1">Cost Saving Project</option>
-              <option value="2">Compliance Project</option>
+            <select class="form-select bg-light border-0 rounded-pill px-4 py-3 shadow-none appearance-none"
+              name="projectType" [(ngModel)]="newProjectData.project_type_id">
+              <option [ngValue]="1">Revenue Project</option>
+              <option [ngValue]="2">Cost Saving Project</option>
+              <option [ngValue]="3">Compliance Project</option>
             </select>
           </div>
         </div>
         <div class="col-md-6">
           <label class="form-label text-muted small fw-bold">Duration (months)</label>
-          <input type="text" name="duration" [(ngModel)]="newProjectData.duration_months" class="form-control ..."
-            placeholder="e.g. 12">
+          <input type="number" name="duration" [(ngModel)]="newProjectData.duration_months"
+            class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none"
+            placeholder="e.g. 12" min="1">
         </div>
       </div>
 
@@ -44,8 +46,9 @@
         <label class="form-label text-muted small fw-bold">Initial Investment</label>
         <div class="input-group bg-light rounded-pill px-3 py-1">
           <span class="input-group-text bg-transparent border-0 text-muted small">THB</span>
-          <input type="text" name="budget" [(ngModel)]="newProjectData.initial_budget" class="form-control ..."
-            placeholder="0.00">
+          <input type="number" name="budget" [(ngModel)]="newProjectData.initial_budget"
+            class="form-control bg-transparent border-0 shadow-none text-end fw-bold"
+            placeholder="0.00" min="0" step="0.01">
         </div>
       </div>
     </form>

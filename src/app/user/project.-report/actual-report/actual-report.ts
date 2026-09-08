@@ -19,11 +19,19 @@ export class ActualReport implements OnInit {
   estimatedLedger: ProjectLedger[] = [];
   actualLedger: ProjectLedger[] = [];
 
-  // ยอดรวมแยกตาม Estimated vs Actual และ Expense vs Revenue
-  totalEstExpense = 0;
-  totalActExpense = 0;
+  // ─── Estimated KPIs ───────────────────────────────────────────────────────
   totalEstRevenue = 0;
+  totalEstExpense = 0;
+  estNetProfit = 0;
+  estROI = 0;
+  estPaybackMonths: number | null = null;
+
+  // ─── Actual KPIs ─────────────────────────────────────────────────────────
   totalActRevenue = 0;
+  totalActExpense = 0;
+  actNetProfit = 0;
+  actROI = 0;
+  actPaybackMonths: number | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -31,7 +39,6 @@ export class ActualReport implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // ดึง project ID จาก URL parameter เช่น /actual-report/101 → id = 101
     this.projectId = Number(this.route.snapshot.paramMap.get('id'));
     this.loadData();
   }
@@ -44,17 +51,12 @@ export class ActualReport implements OnInit {
     }).subscribe({
       next: (result) => {
         this.project = result.project;
-        
-        // แยก Estimated vs Actual โดยเช็คจากค่า phase ของ DB
+
+        // แยก Estimated vs Actual
         this.estimatedLedger = result.ledgers.filter(l => l.phase === 'Estimated');
-        this.actualLedger = result.ledgers.filter(l => l.phase === 'Actual');
+        this.actualLedger    = result.ledgers.filter(l => l.phase === 'Actual');
 
-        // คำนวณยอดรวมแต่ละประเภท
-        this.totalEstExpense = this.sumAmount(this.estimatedLedger, 1);
-        this.totalEstRevenue = this.sumAmount(this.estimatedLedger, 2);
-        this.totalActExpense = this.sumAmount(this.actualLedger, 1);
-        this.totalActRevenue = this.sumAmount(this.actualLedger, 2);
-
+        this.calculateMetrics();
         this.isLoading = false;
       },
       error: (err) => {
@@ -64,32 +66,74 @@ export class ActualReport implements OnInit {
     });
   }
 
-  private sumAmount(list: ProjectLedger[], typeId: number): number {
-    return list
-      .filter(l => l.type_id === typeId)
-      .reduce((sum, current) => sum + current.total_value, 0);
+  private calculateMetrics(): void {
+    const duration = Number(this.project?.duration_months || 0);
+
+    // ── Estimated metrics ──
+    this.totalEstRevenue = this.sumByType(this.estimatedLedger, 2);
+    this.totalEstExpense = this.sumByType(this.estimatedLedger, 1);
+    this.estNetProfit    = this.totalEstRevenue - this.totalEstExpense;
+    this.estROI = this.totalEstExpense > 0
+      ? ((this.totalEstRevenue - this.totalEstExpense) / this.totalEstExpense) * 100
+      : 0;
+    const monthlyEstRev = duration > 0 ? this.totalEstRevenue / duration : 0;
+    this.estPaybackMonths = (monthlyEstRev > 0 && this.totalEstExpense > 0)
+      ? this.totalEstExpense / monthlyEstRev
+      : null;
+
+    // ── Actual metrics ──
+    this.totalActRevenue = this.sumByType(this.actualLedger, 2);
+    this.totalActExpense = this.sumByType(this.actualLedger, 1);
+    this.actNetProfit    = this.totalActRevenue - this.totalActExpense;
+    this.actROI = this.totalActExpense > 0
+      ? ((this.totalActRevenue - this.totalActExpense) / this.totalActExpense) * 100
+      : 0;
+    const monthlyActRev = duration > 0 ? this.totalActRevenue / duration : 0;
+    this.actPaybackMonths = (monthlyActRev > 0 && this.totalActExpense > 0)
+      ? this.totalActExpense / monthlyActRev
+      : null;
   }
 
-  // แก้ไข: หาค่า Estimated ที่ตรงกับ Actual entry แบบ dynamic (ไม่ hardcode ตัวเลข)
-  // จับคู่โดยใช้ทั้ง category_id และ type_id เพื่อความแม่นยำ
+  private sumByType(list: ProjectLedger[], typeId: number): number {
+    return list
+      .filter(l => Number(l.type_id) === typeId)
+      .reduce((sum, l) => sum + Number(l.total_value || 0), 0);
+  }
+
+  // ─── หา Estimated ที่ตรงกับ Actual entry (จับคู่ด้วย category + type) ────
   getEstimatedMatch(act: ProjectLedger): number {
     const match = this.estimatedLedger.find(
-      l => l.category_id === act.category_id && l.type_id === act.type_id
+      l => String(l.category_id) === String(act.category_id) &&
+           Number(l.type_id) === Number(act.type_id)
     );
-    return match?.total_value || 0;
+    return Number(match?.total_value || 0);
   }
 
-  // ตรวจสอบว่า entry นี้ "เกินงบ" หรือ "ต่ำกว่าเป้า" หรือไม่
+  // ─── ตรวจสอบว่าเกินงบหรือต่ำกว่าเป้า ─────────────────────────────────────
   isOverBudget(act: ProjectLedger): boolean {
     const estimated = this.getEstimatedMatch(act);
-    if (estimated === 0) return false; // ไม่มี estimated เทียบ ถือว่าปกติ
-    // Expense (type 1): เกินงบถ้าจ่ายจริง > ประมาณการ
-    // Revenue (type 2): ต่ำกว่าเป้าถ้าได้รับจริง < ประมาณการ
-    return act.type_id === 1 ? act.total_value > estimated : act.total_value < estimated;
+    if (estimated === 0) return false;
+    const actVal = Number(act.total_value || 0);
+    return Number(act.type_id) === 1 ? actVal > estimated : actVal < estimated;
   }
 
-  // คำนวณส่วนต่างระหว่าง Actual และ Estimated (ใช้ใน Summary Card)
-  getVariance(est: number, act: number): number {
-    return act - est;
+  // ─── Variance: Actual - Estimated ─────────────────────────────────────────
+  getVariance(act: ProjectLedger): number {
+    return Number(act.total_value || 0) - this.getEstimatedMatch(act);
+  }
+
+  // ─── เอาเครื่องหมายถูกต้องตามประเภท ─────────────────────────────────────
+  getVarianceSign(act: ProjectLedger): string {
+    const v = this.getVariance(act);
+    return v > 0 ? '+' : '';
+  }
+
+  // ─── getter แยกแสดงในตาราง ────────────────────────────────────────────────
+  getActualExpenses(): ProjectLedger[] {
+    return this.actualLedger.filter(l => Number(l.type_id) === 1);
+  }
+
+  getActualRevenues(): ProjectLedger[] {
+    return this.actualLedger.filter(l => Number(l.type_id) === 2);
   }
 }
