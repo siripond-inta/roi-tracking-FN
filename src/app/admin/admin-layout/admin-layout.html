@@ -1,5 +1,7 @@
-<div class="d-flex min-vh-100">
-  <div class="sidebar bg-white border-end d-flex flex-column p-3" style="width: 280px;">
+<div class="d-flex" style="height: 100vh; overflow: hidden;">
+  <!-- Sidebar: fix ความสูงเท่าจอ ไม่เลื่อนไปกับ content — overflow-y: auto กันไว้เผื่อเมนูยาวเกินจอ -->
+  <div class="sidebar bg-white border-end d-flex flex-column p-3"
+    style="width: 280px; height: 100vh; overflow-y: auto; flex-shrink: 0;">
     <div class="d-flex align-items-center mb-5 mt-2 px-2">
       <div class="bg-success rounded-3 p-2 me-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
         <i class="bi bi-shield-lock-fill text-white fs-5"></i>
@@ -12,60 +14,59 @@
 
     <ul class="nav nav-pills flex-column mb-auto">
       <li class="nav-item mb-2">
-        <a routerLink="/admin/dashboard" routerLinkActive="active" class="nav-link text-dark d-flex align-items-center px-3 py-2 rounded-3">
-          <i class="bi bi-grid-fill me-3"></i> Dashboard
-        </a>
-      </li>
-      <li class="nav-item mb-2">
         <a routerLink="/admin/user-management" routerLinkActive="active" class="nav-link text-dark d-flex align-items-center px-3 py-2 rounded-3">
           <i class="bi bi-people-fill me-3"></i> User Management
         </a>
       </li>
+      <!-- ยังไม่มีหน้าจริงรองรับ (feature ถัดไป) — ใส่ไว้เป็น roadmap แต่ปิดไม่ให้กดเพื่อไม่ให้เจอ route ที่ไม่มีอยู่จริง -->
       <li class="nav-item mb-2">
-        <a routerLink="/admin/master-data" routerLinkActive="active" class="nav-link text-dark d-flex align-items-center px-3 py-2 rounded-3">
-          <i class="bi bi-database-fill me-3"></i> Master Data
-        </a>
+        <span class="nav-link text-muted d-flex align-items-center justify-content-between px-3 py-2 rounded-3" style="cursor:not-allowed;">
+          <span><i class="bi bi-database-fill me-3"></i>Master Data</span>
+          <small class="badge bg-light text-muted border" style="font-size:.6rem;">Soon</small>
+        </span>
       </li>
       <li class="nav-item mb-2">
-        <a routerLink="/admin/system-logs" routerLinkActive="active" class="nav-link text-dark d-flex align-items-center px-3 py-2 rounded-3">
-          <i class="bi bi-file-earmark-text-fill me-3"></i> System Logs
-        </a>
+        <span class="nav-link text-muted d-flex align-items-center justify-content-between px-3 py-2 rounded-3" style="cursor:not-allowed;">
+          <span><i class="bi bi-file-earmark-text-fill me-3"></i>System Logs</span>
+          <small class="badge bg-light text-muted border" style="font-size:.6rem;">Soon</small>
+        </span>
       </li>
     </ul>
 
     <hr class="text-muted">
 
     <ul class="nav nav-pills flex-column">
-      <li class="nav-item mb-2">
-        <a href="#" class="nav-link text-muted d-flex align-items-center px-3 py-2">
-          <i class="bi bi-question-circle me-3"></i> Support
-        </a>
-      </li>
       <li class="nav-item">
-        <a routerLink="/login" class="nav-link text-muted d-flex align-items-center px-3 py-2">
+        <button (click)="logout()" class="nav-link text-muted d-flex align-items-center px-3 py-2 border-0 bg-transparent w-100 text-start">
           <i class="bi bi-box-arrow-right me-3"></i> Sign Out
-        </a>
+        </button>
       </li>
     </ul>
   </div>
 
-  <div class="flex-grow-1 bg-light d-flex flex-column">
-    <header class="navbar navbar-white bg-white border-bottom py-3 px-4">
-      <div class="container-fluid p-0">
-        <div class="input-group bg-light rounded-pill px-3 py-1 border" style="max-width: 400px;">
-          <span class="input-group-text bg-transparent border-0"><i class="bi bi-search text-muted"></i></span>
-          <input type="text" class="form-control bg-transparent border-0 shadow-none" placeholder="Search system resources...">
+  <!-- Content column: header คงที่ + main เลื่อน scroll เองอย่างเดียว (min-width/min-height:0
+       จำเป็นสำหรับ flexbox ไม่งั้น overflow จะไม่ทำงานตามที่ควร) -->
+  <div class="flex-grow-1 bg-light d-flex flex-column" style="height: 100vh; min-width: 0;">
+    <header class="navbar navbar-white bg-white border-bottom py-3 px-4" style="flex-shrink: 0;">
+      <div class="container-fluid p-0 d-flex justify-content-between align-items-center">
+        <!-- หัวข้อของหน้าปัจจุบัน อ่านจาก route data — เปลี่ยนอัตโนมัติตามหน้าที่เข้า -->
+        <div *ngIf="pageHeader.title()">
+          <p class="text-muted mb-0" style="font-size: 0.8rem;">{{ pageHeader.title() }}</p>
+          <h5 class="fw-bold mb-0">{{ pageHeader.subtitle() }}</h5>
         </div>
-        
-        <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-light rounded-circle position-relative"><i class="bi bi-bell"></i></button>
-          <button class="btn btn-light rounded-circle"><i class="bi bi-gear"></i></button>
-          <div class="avatar-img rounded-circle bg-dark ms-2" style="width: 40px; height: 40px;"></div>
+        <div *ngIf="!pageHeader.title()"></div>
+
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center text-white fw-bold"
+            style="width: 36px; height: 36px; font-size: 0.9rem;">
+            {{ (authService.currentUser()?.fullName || 'A').charAt(0) }}
+          </div>
+          <span class="small fw-medium text-dark">{{ authService.currentUser()?.fullName || 'Admin' }}</span>
         </div>
       </div>
     </header>
 
-    <main class="p-4 overflow-auto">
+    <main class="p-4" style="flex: 1 1 auto; min-height: 0; overflow-y: auto;">
       <router-outlet></router-outlet>
     </main>
   </div>

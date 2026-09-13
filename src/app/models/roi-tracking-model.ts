@@ -7,8 +7,7 @@ export interface User {
   email: string;
   password_hash?: string;
   full_name: string;
-  role: 'admin' | 'user';
-  company_name?: string;
+  role: 'admin' | 'project_owner' | 'viewer';
   created_at: Date;
 }
 
@@ -36,6 +35,7 @@ export interface Project {
   is_public?: boolean;           // สาธารณะ = true, ส่วนตัว = false
   created_at: Date;
   status?: 'Estimated' | 'Actual';
+  owner_name?: string;           // ชื่อเจ้าของโปรเจกต์ — ใช้แสดงในหน้า Community
 }
 
 export interface Category {

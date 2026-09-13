@@ -30,6 +30,17 @@ export class ProjectService {
     );
   }
 
+  // 1.5 ดึงโปรเจกต์ public ของคนอื่นที่แชร์ไว้ให้ดู (หน้า Community)
+  getCommunityProjects(): Observable<Project[]> {
+    return this.http.get<ApiResponse<Project[]>>(`${this.API_URL}/community`).pipe(
+      map(res => (res.data || []).map(p => ({
+        ...p,
+        project_id: Number(p.project_id),
+        initial_budget: Number(p.initial_budget || 0)
+      })))
+    );
+  }
+
   // 2. ดึงข้อมูลโปรเจกต์เดียวด้วย ID
   getProjectById(id: number): Observable<Project> {
     return this.http.get<ApiResponse<Project>>(`${this.API_URL}/${id}`).pipe(

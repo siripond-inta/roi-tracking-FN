@@ -7,6 +7,7 @@ import { ProjectService } from '../../services/project.service';
 import { ToastService } from '../../services/toast.service';
 import { timeout, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-projects',
@@ -64,34 +65,42 @@ export class Projects implements OnInit {
     );
   }
 
-  // ลบโปรเจกต์: เรียก API แล้วโหลด list ใหม่
-  deleteProject(projectId: number, projectName: string): void {
-    // ถาม confirm ก่อนลบ
-    if (!confirm(`ยืนยันลบโปรเจกต์ "${projectName}" ออกจากระบบ?`)) return;
+  // ลบโปรเจกต์: ถาม confirm แบบ modal (กันกดลบพลาด — ลบแล้วกู้คืนไม่ได้) แล้วเรียก API + โหลด list ใหม่
+  async deleteProject(projectId: number, projectName: string): Promise<void> {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: `ลบโปรเจกต์ "${projectName}"?`,
+      text: 'ข้อมูลทั้งหมดของโปรเจกต์นี้ (รวมถึง ledger) จะถูกลบถาวร ไม่สามารถกู้คืนได้',
+      showCancelButton: true,
+      confirmButtonText: 'ลบโปรเจกต์',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#dc3545'
+    });
+    if (!result.isConfirmed) return;
 
     this.projectService.deleteProject(projectId).subscribe({
       next: () => {
-        this.toastService.success(`ลบโปรเจกต์ "${projectName}" เรียบร้อยแล้ว`);
+        Swal.fire({
+          icon: 'success',
+          title: 'ลบโปรเจกต์สำเร็จ',
+          text: `"${projectName}" ถูกลบออกจากระบบแล้ว`,
+          timer: 1800,
+          showConfirmButton: false
+        });
         this.loadProjects(); // โหลดข้อมูลใหม่หลังจากลบเสร็จสิ้น
       },
       error: (err) => {
         console.error('Error deleting project:', err);
-        this.toastService.error(`ลบโปรเจกต์ไม่สำเร็จ: ${err.error?.message || 'ข้อผิดพลาดระบบ'}`);
+        Swal.fire({
+          icon: 'error',
+          title: 'ลบโปรเจกต์ไม่สำเร็จ',
+          text: err.error?.message || 'เกิดข้อผิดพลาดที่ระบบ กรุณาลองใหม่อีกครั้ง'
+        });
       }
     });
   }
 
-  // แก้ไขโปรเจกต์: ถ้าสถานะเป็น Actual ให้ไปแก้ไข Actual, ถ้าสถานะเป็น Estimated ให้ไปแก้ไข Estimated
-  editProject(prj: Project): void {
-    const route = prj.status === 'Actual'
-      ? '/user/actual-report'
-      : '/user/estimated-report';
-    this.router.navigate([route, prj.project_id], {
-      queryParams: { mode: 'edit' }
-    });
-  }
-
-  // navigate ไปหน้า report ที่ถูกต้องตาม status
+  // navigate ไปหน้า report ที่ถูกต้องตาม status (ใช้ตอนคลิกทั้งแถวในตาราง)
   viewReport(prj: Project): void {
     const route = prj.status === 'Actual'
       ? '/user/actual-report'

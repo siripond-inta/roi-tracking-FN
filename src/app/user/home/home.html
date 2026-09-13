@@ -1,8 +1,27 @@
 <div class="container-fluid py-4">
-    <header class="mb-5">
-    <p class="text-muted mb-1">Welcome, {{ authService.currentUser()?.fullName || 'User' }}</p>
-    <h1 class="fw-bold display-5 text-dark">Total Project Overview</h1>
-    </header>
+    <!-- หัวข้อหน้าย้ายไปอยู่ที่ header ด้านบนแล้ว (ระดับเดียวกับชื่อ user) -->
+
+    <!-- Search + Create อยู่บนสุด -->
+    <div class="search-container shadow-sm border mb-5 p-3 bg-white rounded-4">
+        <div class="row align-items-center g-2">
+            <div class="col-md-4">
+                <div class="d-flex align-items-center border rounded-pill bg-light px-3" style="height: 48px;">
+                    <i class="bi bi-search text-secondary"></i>
+                    <input type="text" [(ngModel)]="searchTerm"
+                        class="form-control border-0 bg-transparent shadow-none ms-2"
+                        placeholder="Search projects...">
+                </div>
+            </div>
+            <div class="col"></div>
+            <div class="col-auto d-flex gap-2">
+                
+                <button class="btn btn-add-project shadow-sm bg-success text-white border-0 px-4 rounded-pill fw-bold"
+                    routerLink="/user/estimated-form1" style="height: 48px;">
+                    + Add New Project
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- แสดงวงโหลดข้อมูลแบบสวยงามระหว่างดึงข้อมูลจาก database -->
     <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5">
@@ -75,40 +94,12 @@
             </div>
         </div>
 
-        <div class="mb-3">
-            <ul class="nav custom-tabs">
-                <li class="nav-item"><a class="nav-link active" href="#">My Projects</a></li>
-                <li class="nav-item"><a class="nav-link" href="#">Shared with me</a></li>
-            </ul>
-        </div>
-
-        <div class="search-container shadow-sm border mb-5 p-3 bg-white rounded-4">
-            <div class="row align-items-center g-2">
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center border rounded-pill bg-light px-3" style="height: 48px;">
-                        <i class="bi bi-search text-secondary"></i>
-                        <input type="text" [(ngModel)]="searchTerm"
-                            class="form-control border-0 bg-transparent shadow-none ms-2"
-                            placeholder="Search projects...">
-                    </div>
-                </div>
-                <div class="col"></div>
-                <div class="col-auto d-flex gap-2">
-                    <button class="btn btn-light border rounded-circle shadow-sm"><i class="bi bi-filter"></i></button>
-                    <button class="btn btn-add-project shadow-sm bg-success text-white border-0 px-4 rounded-pill fw-bold"
-                        routerLink="/user/estimated-form1" style="height: 48px;">
-                        + Add New Project
-                    </button>
-                </div>
-            </div>
-        </div>
-
-
         <div class="row g-4">
             <!-- เปลี่ยนจาก projects เป็น filteredProjects — getter สร้าง array ใหม่ทุกครั้งที่ searchTerm เปลี่ยน -->
             <div class="col-12 col-md-6 col-lg-4" *ngFor="let prj of filteredProjects">
 
-                <div class="card project-card border-0 p-4 shadow-sm h-100 rounded-4">
+                <div class="card project-card border-0 p-4 shadow-sm h-100 rounded-4" role="button"
+                    (click)="goToProject(prj)" style="cursor:pointer;">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <h5 class="fw-bold mb-0 text-dark">{{ prj.project_name }}</h5>
                         <!-- แก้ไข: ส่ง prj object แทน ID เพื่อให้ดู status จริงได้ -->
@@ -118,19 +109,18 @@
                     </div>
 
                     <div class="mb-4">
-                        <span class="badge bg-light text-secondary border me-1">#Digital</span>
+                        <span class="badge bg-light text-secondary border me-1">{{ prj.project_type || 'ไม่ระบุประเภท' }}</span>
                         <span class="badge bg-light text-secondary border">#ID-{{ prj.project_id }}</span>
                     </div>
 
                     <div class="mb-4">
                         <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted">Progress</span>
-                            <span class="fw-bold">{{ prj.project_id === 101 ? '75%' : (prj.project_id === 102 ? '40%' :
-                                '10%') }}</span>
+                            <span class="text-muted">Budget Used</span>
+                            <span class="fw-bold">{{ getProjectBudgetUtilization(prj.project_id) | number:'1.0-0' }}%</span>
                         </div>
                         <div class="progress" style="height: 8px;">
                             <div class="progress-bar bg-success"
-                                [style.width.%]="prj.project_id === 101 ? 75 : (prj.project_id === 102 ? 40 : 10)">
+                                [style.width.%]="getProjectBudgetUtilization(prj.project_id)">
                             </div>
                         </div>
                     </div>
@@ -152,6 +142,7 @@
                         <!-- แก้ไข: ส่ง project_id ไปด้วย queryParams เพื่อให้ actual-form1 รู้ว่าจะ record โปรเจกต์ไหน -->
                         <button [routerLink]="['/user/actual-form1']"
                                 [queryParams]="{ projectId: prj.project_id }"
+                                (click)="$event.stopPropagation()"
                                 class="btn btn-outline-success btn-sm rounded-pill px-3"
                                 *ngIf="prj.status !== 'Actual'">
                             Record Actual

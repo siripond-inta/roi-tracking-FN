@@ -1,0 +1,5 @@
+/* nav-pills ใช้สีน้ำเงินของ Bootstrap เป็นค่าเริ่มต้นตอน active — override ผ่าน CSS variable
+   ของตัว component เอง ให้ตรงกับสีเขียวหลักของธีม (ปุ่ม, โลโก้ ใช้สีนี้ทั้งแอป) */
+.sidebar .nav-pills {
+  --bs-nav-pills-link-active-bg: #28a745;
+}

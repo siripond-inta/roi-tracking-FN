@@ -1,7 +1,7 @@
 // src/app/login/login.ts
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../services/auth.service';
 
@@ -21,10 +21,7 @@ export class Login {
   isLoading: boolean = false;
   errorMessage: string = '';
 
-  constructor(
-    private authService: AuthService,
-    private router: Router
-  ) {}
+  constructor(private authService: AuthService) {}
 
   // เรียกเมื่อกด Submit
   onLogin(): void {
@@ -43,11 +40,13 @@ export class Login {
     this.authService.login(this.email, this.password).subscribe({
       next: (response) => {
         this.isLoading = false;
-        // redirect ตาม role ที่ได้จาก Backend
+        // redirect ตาม role ที่ได้จาก Backend — ใช้ window.location.href (full page reload)
+        // แทน router.navigate() โดยตั้งใจ เพื่อล้าง state ของ SPA ทั้งหมดจาก session/user ก่อนหน้า
+        // ในแท็บเดิม (กันข้อมูลของ user คนเก่าค้างแสดงตอน login เป็นคนใหม่)
         if (response.user.role === 'admin') {
-          this.router.navigate(['/admin/user-management']);
+          window.location.href = '/admin/user-management';
         } else {
-          this.router.navigate(['/user/dashboard']);
+          window.location.href = '/user/community';
         }
       },
       error: (err) => {

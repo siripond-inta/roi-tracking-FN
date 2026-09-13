@@ -1,0 +1,68 @@
+<div class="container-fluid py-4">
+
+  <!-- หัวข้อหน้าย้ายไปอยู่ที่ header ด้านบนแล้ว (ระดับเดียวกับชื่อ user) — เหลือแค่ search ที่นี่ -->
+  <div class="d-flex justify-content-end align-items-center mb-4 flex-wrap gap-3">
+    <div class="d-flex align-items-center bg-white rounded-pill px-3 border shadow-sm"
+      style="width: 320px; height: 44px;">
+      <i class="bi bi-search text-muted small"></i>
+      <input type="text" [(ngModel)]="searchTerm"
+        class="form-control border-0 bg-transparent shadow-none small"
+        placeholder="ค้นหาโปรเจกต์ หรือชื่อเจ้าของ...">
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5 bg-white rounded-4 shadow-sm">
+    <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
+    </div>
+    <p class="text-muted mt-3 fw-bold">กำลังโหลดโปรเจกต์สาธารณะ...</p>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="!isLoading && filteredProjects.length === 0"
+    class="text-center py-5 my-5 bg-white rounded-4 shadow-sm">
+    <i class="bi bi-globe2 text-muted" style="font-size: 2.5rem;"></i>
+    <p class="text-muted mt-3 fw-bold mb-0">ยังไม่มีโปรเจกต์สาธารณะในตอนนี้</p>
+    <small class="text-muted">เมื่อผู้ใช้คนอื่นเปิดโปรเจกต์เป็นสาธารณะ จะมาแสดงที่นี่</small>
+  </div>
+
+  <!-- Card grid -->
+  <div *ngIf="!isLoading" class="row g-4">
+    <div class="col-12 col-md-6 col-lg-4" *ngFor="let prj of filteredProjects">
+      <div class="card project-card border-0 p-4 shadow-sm h-100 rounded-4">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <h5 class="fw-bold mb-0 text-dark">{{ prj.project_name }}</h5>
+          <span class="badge rounded-pill px-3 py-2"
+            [ngClass]="prj.status === 'Actual' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'">
+            {{ prj.status }}
+          </span>
+        </div>
+
+        <div class="mb-3 d-flex align-items-center gap-2 text-muted small">
+          <i class="bi bi-person-circle"></i>
+          โดย {{ prj.owner_name || 'ไม่ทราบชื่อ' }}
+        </div>
+
+        <div class="mb-4">
+          <span class="badge bg-light text-secondary border">{{ prj.project_type || 'ไม่ระบุประเภท' }}</span>
+        </div>
+
+        <div class="row text-center border-top pt-3 mt-auto mb-3">
+          <div class="col-6 border-end">
+            <small class="text-muted d-block">BUDGET</small>
+            <strong class="text-dark">฿{{ prj.initial_budget | number }}</strong>
+          </div>
+          <div class="col-6">
+            <small class="text-muted d-block">DURATION</small>
+            <strong class="text-dark">{{ prj.duration_months }} เดือน</strong>
+          </div>
+        </div>
+
+        <a [routerLink]="reportRoute(prj)" class="btn btn-outline-success rounded-pill w-100">
+          <i class="bi bi-eye me-1"></i> View Report
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

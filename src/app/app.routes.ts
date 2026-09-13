@@ -51,6 +51,7 @@ import { authGuard } from './guards/auth.guard';
 import { adminGuard } from './guards/admin.guard';
 import { EstimatedReport } from './user/project.-report/estimated-report/estimated-report';
 import { ActualReport } from './user/project.-report/actual-report/actual-report';
+import { Community } from './user/community/community';
 
 export const routes: Routes = [
     // --- 1. กลุ่มหน้า Login / Signup (ไม่มี Navbar) ---
@@ -63,17 +64,22 @@ export const routes: Routes = [
         component: UserLayout,
         canActivate: [authGuard], // ← Guard: ถ้าไม่มี token → redirect ไป /login
         children: [
-            { path: 'dashboard', component: Home },
-            { path: 'projects', component: Projects },
-            { path: 'settings', component: Settings },
-            { path: 'security', component: Security },
+            // data: {title, subtitle} อ่านโดย UserLayout เพื่อโชว์หัวข้อหน้าปัจจุบันที่ header
+            // ด้านบน (แทนที่หัวข้อซ้ำๆ ที่แต่ละหน้าเคยเขียนไว้เองใน content) — หน้า report/form
+            // ไม่ใส่ data ไว้ เพราะมี breadcrumb + หัวข้อของตัวเองอยู่แล้ว (ชื่อโปรเจกต์จริง ไม่ใช่
+            // ข้อความคงที่), ใส่ซ้ำจะดูซ้อนกัน
+            { path: 'community', component: Community, data: { title: 'Community', subtitle: 'Public Projects' } },
+            { path: 'dashboard', component: Home, data: { title: 'Dashboard', subtitle: 'Total Project Overview' } },
+            { path: 'projects', component: Projects, data: { title: 'Projects', subtitle: 'All Projects' } },
+            { path: 'settings', component: Settings, data: { title: 'Settings', subtitle: 'Account Settings' } },
+            { path: 'security', component: Security, data: { title: 'Settings', subtitle: 'Security' } },
             { path: 'estimated-form1', component: EstimatedForm1 },
             { path: 'estimated-form2', component: EstimatedForm2 },
             { path: 'actual-form1', component: ActualForm1 },
             { path: 'actual-form2', component: ActualForm2 },
             { path: 'estimated-report/:id', component: EstimatedReport},
             { path: 'actual-report/:id', component: ActualReport},
-            { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
+            { path: '', redirectTo: 'community', pathMatch: 'full' }
         ]
     },
 
@@ -83,7 +89,7 @@ export const routes: Routes = [
         component: AdminLayout,
         canActivate: [adminGuard], // ← Guard: ตรวจ token + role === 'admin'
         children: [
-            { path: 'user-management', component: UserManagement },
+            { path: 'user-management', component: UserManagement, data: { title: 'Admin', subtitle: 'Admin Dashboard' } },
             { path: '', redirectTo: 'user-management', pathMatch: 'full' }
         ]
     },

@@ -1,80 +1,90 @@
-<nav class="navbar navbar-expand-lg bg-white border-bottom py-3 sticky-top shadow-sm">
-  <div class="container-fluid px-4">
-    <!-- Logo + Brand -->
-    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" routerLink="/user/dashboard">
-      <div class="rounded-3 d-flex align-items-center justify-content-center"
-        style="width:34px; height:34px; background:linear-gradient(135deg,#1a6b3c,#28a745);">
-        <i class="bi bi-graph-up-arrow text-white" style="font-size:.9rem"></i>
+<div class="app-shell d-flex" style="height: 100vh; overflow: hidden;">
+  <!-- Sidebar: fix ความสูงเท่าจอ ไม่เลื่อนไปกับ content — overflow-y: auto กันไว้เผื่อเมนูยาวเกินจอ
+       (คลาส .sidebar/.app-shell/.app-content-col/.app-main-scroll ใช้เป็น hook สำหรับ @media print
+       ใน styles.css ด้วย — ซ่อน sidebar/header และคลาย fixed-height/overflow ตอนพิมพ์ ให้เนื้อหา
+       ที่ยาวเกินจอไหลต่อหลายหน้าได้แทนที่จะโดนตัดแค่หน้าจอเดียว) -->
+  <div class="sidebar bg-white border-end d-flex flex-column p-3"
+    style="width: 280px; height: 100vh; overflow-y: auto; flex-shrink: 0;">
+
+    <a routerLink="/user/community" class="d-flex align-items-center text-decoration-none mb-5 mt-2 px-2">
+      <div class="rounded-3 d-flex align-items-center justify-content-center me-2"
+        style="width:40px; height:40px; background:linear-gradient(135deg,#1a6b3c,#28a745);">
+        <i class="bi bi-graph-up-arrow text-white fs-5"></i>
       </div>
-      <span style="font-size:1rem; letter-spacing:-.3px;">ROI Tracking</span>
+      <div>
+        <h6 class="fw-bold mb-0 text-dark">ROI Tracking</h6>
+      </div>
     </a>
 
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
+    <ul class="nav nav-pills flex-column mb-auto">
+      <li class="nav-item mb-2">
+        <a routerLink="/user/community" routerLinkActive="active" class="nav-link text-dark d-flex align-items-center px-3 py-2 rounded-3">
+          <i class="bi bi-people-fill me-3"></i> Community
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a routerLink="/user/dashboard" routerLinkActive="active" class="nav-link text-dark d-flex align-items-center px-3 py-2 rounded-3">
+          <i class="bi bi-grid-1x2-fill me-3"></i> Dashboard
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a routerLink="/user/projects" routerLinkActive="active" class="nav-link text-dark d-flex align-items-center px-3 py-2 rounded-3">
+          <i class="bi bi-folder2-open me-3"></i> Projects
+        </a>
+      </li>
+    </ul>
 
-    <div class="collapse navbar-collapse" id="navbarNav">
-      <!-- Nav Icons ตรงกลาง -->
-      <ul class="navbar-nav mx-auto gap-1">
-        <li class="nav-item">
-          <a class="nav-link nav-icon-btn d-flex align-items-center justify-content-center rounded-3"
-            routerLink="/user/dashboard" routerLinkActive="active-custom"
-            title="Dashboard" style="width:44px; height:44px;">
-            <i class="bi bi-grid-1x2-fill"></i>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link nav-icon-btn d-flex align-items-center justify-content-center rounded-3"
-            routerLink="/user/projects" routerLinkActive="active-custom"
-            title="Projects" style="width:44px; height:44px;">
-            <i class="bi bi-folder2-open"></i>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link nav-icon-btn d-flex align-items-center justify-content-center rounded-3"
-            routerLink="/user/settings" routerLinkActive="active-custom"
-            title="Settings" style="width:44px; height:44px;">
-            <i class="bi bi-gear-fill"></i>
-          </a>
-        </li>
-      </ul>
+    <!-- Settings/Security ย้ายไปอยู่ใน dropdown ของชื่อ user ที่ header ด้านขวาแทน —
+         เหลือแค่ Sign Out ที่นี่ ตรงกับที่ควรเป็น "ทางออกจากแอป" แยกจากเมนู navigate หลัก -->
+    <hr class="text-muted">
 
-      <!-- ฝั่งขวา -->
-      <div class="d-flex align-items-center gap-2">
-        <span class="small text-muted fw-medium">
-          <i class="bi bi-person-circle me-1"></i>
-          {{ authService.currentUser()?.fullName || 'User' }}
-        </span>
+    <ul class="nav nav-pills flex-column">
+      <li class="nav-item">
+        <button (click)="logout()" class="nav-link text-muted d-flex align-items-center px-3 py-2 border-0 bg-transparent w-100 text-start">
+          <i class="bi bi-box-arrow-right me-3"></i> Sign Out
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Content column: header คงที่ + main เลื่อน scroll เองอย่างเดียว (min-width/min-height:0
+       จำเป็นสำหรับ flexbox ไม่งั้น overflow จะไม่ทำงานตามที่ควร) -->
+  <div class="app-content-col flex-grow-1 bg-light d-flex flex-column" style="height: 100vh; min-width: 0;">
+    <header class="navbar navbar-white bg-white border-bottom py-3 px-4" style="flex-shrink: 0;">
+      <div class="container-fluid p-0 d-flex justify-content-between align-items-center">
+        <!-- หัวข้อของหน้าปัจจุบัน อ่านจาก route data หรือถูก override โดยหน้าลูก (เช่นหน้ารายงาน
+             ที่ตั้งเป็นชื่อโปรเจกต์จริงหลังโหลดข้อมูลเสร็จ) — เปลี่ยนอัตโนมัติตามหน้าที่เข้า -->
+        <div *ngIf="pageHeader.title()">
+          <p class="text-muted mb-0" style="font-size: 0.8rem;">{{ pageHeader.title() }}</p>
+          <h5 class="fw-bold mb-0">{{ pageHeader.subtitle() }}</h5>
+        </div>
+        <div *ngIf="!pageHeader.title()"></div>
 
         <div class="dropdown">
-          <button class="btn btn-sm btn-light rounded-pill border dropdown-toggle px-3"
-            type="button" data-bs-toggle="dropdown">
-            <i class="bi bi-chevron-down small"></i>
+          <button class="btn d-flex align-items-center gap-2 border-0 bg-transparent" type="button"
+            data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="rounded-circle bg-dark d-flex align-items-center justify-content-center text-white fw-bold"
+              style="width: 36px; height: 36px; font-size: 0.9rem;">
+              {{ (authService.currentUser()?.fullName || 'U').charAt(0) }}
+            </div>
+            <span class="small fw-medium text-dark">{{ authService.currentUser()?.fullName || 'User' }}</span>
+            <i class="bi bi-chevron-down small text-muted"></i>
           </button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+          <!-- Security ไม่ได้อยู่ที่นี่แล้ว เพราะหน้า Settings มี tab ไปหน้า Security อยู่แล้ว
+               (มีซ้ำ 2 ที่ ทำให้กดวนไปวนมาหาทางเดียวกัน) -->
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3 mt-2">
             <li>
               <a class="dropdown-item small" routerLink="/user/settings">
-                <i class="bi bi-person me-2 text-muted"></i>Profile
+                <i class="bi bi-gear me-2 text-muted"></i>Settings
               </a>
-            </li>
-            <li>
-              <a class="dropdown-item small" routerLink="/user/security">
-                <i class="bi bi-shield-lock me-2 text-muted"></i>Security
-              </a>
-            </li>
-            <li><hr class="dropdown-divider"></li>
-            <li>
-              <button class="dropdown-item small text-danger" (click)="logout()">
-                <i class="bi bi-box-arrow-right me-2"></i>Logout
-              </button>
             </li>
           </ul>
         </div>
       </div>
-    </div>
-  </div>
-</nav>
+    </header>
 
-<div class="user-container">
-  <router-outlet></router-outlet>
+    <main class="app-main-scroll" style="flex: 1 1 auto; min-height: 0; overflow-y: auto;">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
 </div>

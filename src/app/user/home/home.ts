@@ -1,10 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { Project, ProjectLedger } from '../../models/roi-tracking-model';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../services/project.service';
-import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { forkJoin, of } from 'rxjs';
 import { timeout, catchError } from 'rxjs/operators';
@@ -30,9 +29,15 @@ export class Home implements OnInit {
 
   constructor(
     private projectService: ProjectService,
-    public authService: AuthService,
-    private toastService: ToastService
+    private toastService: ToastService,
+    private router: Router
   ) { }
+
+  // คลิกที่การ์ดโปรเจกต์ → ไปหน้ารายงานของโปรเจกต์นั้น (Actual ถ้ามีข้อมูลจริงแล้ว, ไม่งั้น Estimated)
+  goToProject(prj: Project): void {
+    const route = prj.status === 'Actual' ? '/user/actual-report' : '/user/estimated-report';
+    this.router.navigate([route, prj.project_id]);
+  }
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -153,5 +158,19 @@ export class Home implements OnInit {
 
     // สูตร ROI (%): ((Revenue - Cost) / Cost) * 100
     return effectiveCost > 0 ? ((revenue - effectiveCost) / effectiveCost) * 100 : 0;
+  }
+
+  // สัดส่วนงบที่ใช้ไปแล้วของโปรเจกต์นี้ (คำนวณจากรายจ่ายจริง/ประมาณการเทียบกับ initial_budget)
+  // ใช้แทนแถบ "Progress" เดิมที่เคย hardcode ไว้ (75%/40%/10% ตาม project_id)
+  getProjectBudgetUtilization(projectId: number): number {
+    const project = this.projects.find(p => Number(p.project_id) === Number(projectId));
+    const budget = Number(project?.initial_budget || 0);
+    if (budget <= 0) return 0;
+
+    const expenses = this.getRelevantLedgers(projectId)
+      .filter(l => Number(l.type_id) === 1)
+      .reduce((s, l) => s + Number(l.total_value || 0), 0);
+
+    return Math.min((expenses / budget) * 100, 100);
   }
 }
