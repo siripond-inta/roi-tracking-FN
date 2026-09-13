@@ -1,0 +1,24 @@
+# Frontend container: builds the Angular app and serves it via nginx.
+#
+# `name:` below matches the same key in roi-tracking-BN's docker-compose.yml. They're still two
+# independent repos/commands (`docker compose up` run separately in each folder), but sharing the
+# project name groups both under one "roi-tracking" stack in Docker Desktop, and puts both on the
+# same default network (roi-tracking_default) in case a container-to-container link is ever
+# needed. The browser calling http://localhost:3000 (see README) doesn't need that, though.
+name: roi-tracking
+
+services:
+  frontend:
+    build:
+      context: .
+    image: roi-tracking-frontend:latest
+    container_name: roi-tracking-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
