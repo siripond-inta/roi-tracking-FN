@@ -1,45 +1,8 @@
-<div class="container-fluid py-5 px-md-5 bg-light min-vh-100">
-  <div class="row g-4">
-    
-    <div class="col-12 col-lg-3">
-      <div class="card border-0 shadow-sm rounded-4 p-4 h-100">
-        <div class="mb-4">
-          <h5 class="fw-bold mb-1">Settings</h5>
-          <small class="text-muted">Manage your pulse</small>
-        </div>
+<div class="container-fluid py-4">
+  <!-- หัวข้อหน้า (Settings / Security) ย้ายไปอยู่ที่ header ด้านบนแล้ว -->
+  <app-settings-tabs></app-settings-tabs>
 
-        <ul class="nav flex-column gap-2">
-          <li class="nav-item">
-            <a routerLink="/user/settings" class="nav-link text-muted px-3 py-2 d-flex align-items-center">
-              <i class="bi bi-person me-2"></i> Account Profile
-            </a>
-          </li>
-          <li class="nav-item">
-            <a routerLink="/security" routerLinkActive="active-setting" class="nav-link active-setting rounded-pill px-3 py-2 d-flex align-items-center">
-              <i class="bi bi-shield-lock-fill me-2"></i> Security
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="#" class="nav-link text-muted px-3 py-2 d-flex align-items-center">
-              <i class="bi bi-bell me-2"></i> Notifications
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="#" class="nav-link text-muted px-3 py-2 d-flex align-items-center">
-              <i class="bi bi-credit-card me-2"></i> Plan & Billing
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="#" class="nav-link text-muted px-3 py-2 d-flex align-items-center">
-              <i class="bi bi-box me-2"></i> API Access
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="col-12 col-lg-9">
-      <h2 class="fw-bold mb-1">Security</h2>
+  <div class="col-12 col-xl-9">
       <p class="text-muted mb-4">Manage your account security and password settings.</p>
 
       <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
@@ -52,41 +15,48 @@
           </div>
           <p class="text-muted small mb-5">Update your password to keep your account secure.</p>
 
-          <form>
+          <form (ngSubmit)="changePassword()">
             <div class="mb-4">
               <label class="form-label text-muted small fw-bold text-uppercase">Current Password</label>
               <div class="position-relative">
-                <input type="password" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none" placeholder="••••••••">
-                <i class="bi bi-eye-slash position-absolute top-50 end-0 translate-middle-y me-4 text-muted cursor-pointer"></i>
+                <input type="password" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none"
+                  [(ngModel)]="currentPassword" name="currentPassword" [disabled]="isSaving" placeholder="••••••••">
               </div>
             </div>
 
             <div class="mb-4">
               <label class="form-label text-muted small fw-bold text-uppercase">New Password</label>
               <div class="position-relative mb-2">
-                <input type="password" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none" placeholder="••••••••">
-                <i class="bi bi-eye-slash position-absolute top-50 end-0 translate-middle-y me-4 text-muted cursor-pointer"></i>
+                <input type="password" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none"
+                  [(ngModel)]="newPassword" name="newPassword" [disabled]="isSaving" placeholder="••••••••">
               </div>
-              
-              <div class="d-flex gap-1 mb-1">
-                <div class="flex-grow-1 bg-warning rounded-pill" style="height: 4px;"></div>
-                <div class="flex-grow-1 bg-warning rounded-pill opacity-25" style="height: 4px;"></div>
-                <div class="flex-grow-1 bg-warning rounded-pill opacity-25" style="height: 4px;"></div>
+
+              <div class="d-flex gap-1 mb-1" *ngIf="newPassword">
+                <div class="flex-grow-1 rounded-pill" [ngClass]="strengthBarClass" style="height: 4px;"></div>
+                <div class="flex-grow-1 rounded-pill" [ngClass]="passwordStrength >= 2 ? strengthBarClass : 'bg-secondary opacity-25'" style="height: 4px;"></div>
+                <div class="flex-grow-1 rounded-pill" [ngClass]="passwordStrength >= 3 ? strengthBarClass : 'bg-secondary opacity-25'" style="height: 4px;"></div>
               </div>
-              <div class="d-flex justify-content-between">
-                <small class="text-muted">Strength: <span class="text-warning fw-bold">Fair</span></small>
-                <small class="text-muted">8+ characters</small>
+              <div class="d-flex justify-content-between" *ngIf="newPassword">
+                <small class="text-muted">Strength: <span class="fw-bold" [ngClass]="strengthClass">{{ strengthLabel }}</span></small>
+                <small class="text-muted">6+ characters</small>
               </div>
             </div>
 
             <div class="mb-5">
               <label class="form-label text-muted small fw-bold text-uppercase">Confirm New Password</label>
-              <input type="password" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none" placeholder="••••••••">
+              <input type="password" class="form-control bg-light border-0 rounded-pill px-4 py-3 shadow-none"
+                [(ngModel)]="confirmPassword" name="confirmPassword" [disabled]="isSaving" placeholder="••••••••"
+                [class.border-danger]="confirmPassword && confirmPassword !== newPassword">
+              <small class="text-danger d-block mt-2" *ngIf="confirmPassword && confirmPassword !== newPassword">
+                รหัสผ่านใหม่และการยืนยันไม่ตรงกัน
+              </small>
             </div>
 
             <div class="d-flex justify-content-end">
-              <button class="btn btn-light rounded-pill px-4 py-2 fw-bold text-muted border shadow-sm d-flex align-items-center opacity-75">
-                <i class="bi bi-arrow-repeat me-2"></i> Update Password
+              <button type="submit" [disabled]="isSaving" class="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center"
+                style="background-color:#00e676; border:none; color:black;">
+                <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-2"></span>
+                <i *ngIf="!isSaving" class="bi bi-arrow-repeat me-2"></i> {{ isSaving ? 'Updating...' : 'Update Password' }}
               </button>
             </div>
           </form>
@@ -111,5 +81,4 @@
         </div>
       </div>
     </div>
-  </div>
 </div>

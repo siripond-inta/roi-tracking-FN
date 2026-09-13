@@ -1,1 +1,31 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* ─── Print (Actual Report → "พิมพ์ / PDF") ──────────────────────────────────
+   ต้องอยู่ที่ global stylesheet นี้ (ไม่ใช่ css ของ component รายงาน) เพราะ sidebar/header
+   เป็นส่วนของ UserLayout ซึ่งเป็น parent component — Angular scope css ของ component ลูก
+   ไม่ไปถึง element ของ parent เลย ต้องซ่อนที่นี่แทน
+   ปัญหาเดิม: .app-shell/.app-content-col/.app-main-scroll ถูกกำหนด height:100vh +
+   overflow:hidden/auto ไว้ตายตัว (สำหรับให้ sidebar คงที่ตอนใช้งานจริงบนจอ) พอสั่งพิมพ์
+   เบราว์เซอร์เลยตัดเนื้อหาที่ยาวเกินจอเดียวทิ้งไปเหมือนแค่แคปหน้าจอ ต้องคลายทั้งหมดนี้เป็น
+   auto/visible ตอนพิมพ์ ให้เนื้อหาไหลต่อเป็นหลายหน้ากระดาษได้ตามจริง */
+@media print {
+  .sidebar,
+  header.navbar {
+    display: none !important;
+  }
+
+  .app-shell,
+  .app-content-col,
+  .app-main-scroll {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

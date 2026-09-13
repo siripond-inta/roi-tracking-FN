@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Project, ProjectLedger } from '../../../models/roi-tracking-model';
 import { ProjectService } from '../../../services/project.service';
+import { AuthService } from '../../../services/auth.service';
+import { PageHeaderService } from '../../../services/page-header.service';
+import { CategoryService, Category } from '../../../services/category.service';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
@@ -31,6 +34,7 @@ export class EstimatedReport implements OnInit {
 
   mode: 'view' | 'edit' = 'view';
   isPublic = false;
+  isOwner = false; // false = กำลังดูโปรเจกต์ของคนอื่นผ่านหน้า Community (read-only)
 
   // แถวสำหรับกรอกข้อมูลแยก 2 ฝั่ง
   revenueRows: LedgerRow[] = [];
@@ -43,22 +47,14 @@ export class EstimatedReport implements OnInit {
   estROI = 0;
   estPaybackMonths: number | null = null;
 
-  // ─── หมวดหมู่ ─────────────────────────────────────────────────────────────
-  readonly revenueCategories = [
-    { id: 'REV001', name: 'การสร้างรายรับ' },
-    { id: 'REV002', name: 'การประหยัดต้นทุน' }
-  ];
-
-  readonly expenseCategories = [
-    { id: 'CAT001', name: 'ต้นทุนดำเนินการ' },
-    { id: 'CAT002', name: 'ต้นทุนพัฒนา' },
-    { id: 'CAT003', name: 'ต้นทุนทั่วไป' }
-  ];
-
-  readonly allCategories = [
-    ...this.revenueCategories,
-    ...this.expenseCategories
-  ];
+  // ─── หมวดหมู่ (ดึงจาก database ผ่าน API) ────────────────────────────────────
+  allCategories: Category[] = [];
+  get revenueCategories(): Category[] {
+    return this.allCategories.filter(c => c.is_inflow);
+  }
+  get expenseCategories(): Category[] {
+    return this.allCategories.filter(c => !c.is_inflow);
+  }
 
   // ─── Real-time Calculations (คำนวณสดอัตโนมัติขณะกรอก) ───────────────────────
   get liveRevenue(): number {
@@ -112,6 +108,9 @@ export class EstimatedReport implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private projectService: ProjectService,
+    private authService: AuthService,
+    private pageHeader: PageHeaderService,
+    private categoryService: CategoryService,
     private http: HttpClient
   ) {}
 
@@ -122,17 +121,22 @@ export class EstimatedReport implements OnInit {
     this.isLoading = true;
     forkJoin({
       project: this.projectService.getProjectById(id),
-      ledger: this.projectService.getLedgersByProjectId(id)
+      ledger: this.projectService.getLedgersByProjectId(id),
+      categories: this.categoryService.getCategories()
     }).subscribe({
       next: (result) => {
+        this.allCategories = result.categories;
         this.project = result.project;
         this.isPublic = !!result.project.is_public;
+        this.isOwner = result.project.user_id === this.authService.currentUser()?.userId;
+        this.pageHeader.set('Estimated Report', result.project.project_name);
         this.ledger = result.ledger.filter(l => l.phase === 'Estimated');
         this.calculateMetrics();
         this.isLoading = false;
 
         // ถ้ามาด้วย mode=create หรือ mode=edit หรือยังไม่มี ledger ให้เข้าสู่โหมดแก้ไขทันที
-        if (queryMode === 'create' || queryMode === 'edit' || this.ledger.length === 0) {
+        // (เฉพาะเจ้าของเท่านั้น — ผู้ที่เข้ามาดูผ่านหน้า Community ต้องเห็นแค่โหมดดูอย่างเดียว)
+        if (this.isOwner && (queryMode === 'create' || queryMode === 'edit' || this.ledger.length === 0)) {
           this.startEdit();
         } else {
           this.mode = 'view';
@@ -203,7 +207,7 @@ export class EstimatedReport implements OnInit {
 
   newBlankRevenueRow(): LedgerRow {
     return {
-      category_id: 'REV001',
+      category_id: this.revenueCategories[0]?.category_id || '',
       transaction_date: this.getDefaultDate(),
       total_value: 0,
       note: '',
@@ -213,12 +217,19 @@ export class EstimatedReport implements OnInit {
 
   newBlankExpenseRow(): LedgerRow {
     return {
-      category_id: 'CAT002',
+      category_id: this.expenseCategories[0]?.category_id || '',
       transaction_date: this.getDefaultDate(),
       total_value: 0,
       note: '',
       type_id: 1
     };
+  }
+
+  // สัดส่วน (%) ของแถวนี้เทียบกับยอดรวมฝั่งเดียวกัน — ใช้แสดงแถบเล็กใต้แต่ละแถวในโหมดแก้ไข
+  rowShare(row: LedgerRow, total: number): number {
+    const v = Number(row.total_value) || 0;
+    if (total <= 0 || v <= 0) return 0;
+    return Math.min(100, (v / total) * 100);
   }
 
   addRevenueRow(): void {
@@ -424,10 +435,10 @@ export class EstimatedReport implements OnInit {
   }
 
   get isEditable(): boolean {
-    return this.project?.status !== 'Actual';
+    return this.isOwner && this.project?.status !== 'Actual';
   }
 
   getCategoryName(id: string): string {
-    return this.allCategories.find(c => c.id === id)?.name || id;
+    return this.allCategories.find(c => c.category_id === id)?.category_name || id;
   }
 }

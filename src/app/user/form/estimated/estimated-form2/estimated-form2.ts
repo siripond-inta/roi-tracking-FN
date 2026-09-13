@@ -5,6 +5,7 @@ import { Project, ProjectLedger } from '../../../../models/roi-tracking-model';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../../services/toast.service';
+import { CategoryService, Category } from '../../../../services/category.service';
 
 // Interface ที่ระบุ Type ของแต่ละแถวใน Budget Table อย่างชัดเจน
 interface BudgetRow {
@@ -27,17 +28,17 @@ export class EstimatedForm2 implements OnInit {
   projectTypeId: number = 1;
   isLoading: boolean = false; // สำหรับบอกสถานะบันทึกข้อมูล
 
-  // ข้อมูลแถว Budget ทุกแถวอยู่ที่นี่
-  budgetRows: BudgetRow[] = [
-    { type_id: 2, category: 'REV001', note: 'Q1 Sales Projection', amount: 4500000 },
-    { type_id: 1, category: 'CAT002', note: 'Software License & API', amount: 2000000 },
-    { type_id: 1, category: 'CAT001', note: 'Server Maintenance', amount: 1200000 }
-  ];
+  // หมวดหมู่ (ดึงจาก database ผ่าน API)
+  allCategories: Category[] = [];
+
+  // ข้อมูลแถว Budget ทุกแถวอยู่ที่นี่ — เริ่มต้นว่างเปล่า รอโหลดหมวดหมู่แล้วค่อยเติมแถวแรก
+  budgetRows: BudgetRow[] = [];
 
   constructor(
     private projectService: ProjectService,
     private router: Router,
-    private toastService: ToastService
+    private toastService: ToastService,
+    private categoryService: CategoryService
   ) { }
 
   ngOnInit(): void {
@@ -50,6 +51,27 @@ export class EstimatedForm2 implements OnInit {
       this.durationMonths = Number(data.duration_months) || 12;
       this.projectTypeId = Number(data.project_type_id) || 1;
     }
+
+    this.categoryService.getCategories().subscribe(cats => {
+      this.allCategories = cats;
+      this.budgetRows = [this.newBlankRow(1)];
+    });
+  }
+
+  // หมวดหมู่ที่ตรงกับประเภท (รายรับ/รายจ่าย) ของแถวนั้นๆ
+  categoriesForType(typeId: number): Category[] {
+    const wantInflow = Number(typeId) === 2;
+    return this.allCategories.filter(c => c.is_inflow === wantInflow);
+  }
+
+  private newBlankRow(typeId: number): BudgetRow {
+    const firstCategory = this.categoriesForType(typeId)[0];
+    return { type_id: typeId, category: firstCategory?.category_id || '', note: '', amount: 0 };
+  }
+
+  // เมื่อเปลี่ยนประเภท (Expense/Revenue) หมวดหมู่เดิมอาจไม่ตรงชนิดแล้ว รีเซ็ตเป็นตัวเลือกแรกของประเภทใหม่
+  onTypeChange(row: BudgetRow): void {
+    row.category = this.categoriesForType(row.type_id)[0]?.category_id || '';
   }
 
   // คำนวณยอดรวมทุกแถวใน real-time (ใช้แสดงใน Summary Panel)
@@ -64,7 +86,7 @@ export class EstimatedForm2 implements OnInit {
 
   // เพิ่ม/ลบแถว Budget ─────────────────────────────────────────────────────
   addRow(): void {
-    this.budgetRows.push({ type_id: 1, category: 'CAT001', note: '', amount: 0 });
+    this.budgetRows.push(this.newBlankRow(1));
   }
 
   removeRow(index: number): void {

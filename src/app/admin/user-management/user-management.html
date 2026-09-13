@@ -1,101 +1,352 @@
-<main class="col-md-10 px-md-5 py-4 bg-light">
-  
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h2 class="fw-bold mb-0">User Cleanup & Maintenance</h2>
-      <p class="text-secondary small">Identify and manage inactive accounts to optimize system security.</p>
-    </div>
-    
-    <div class="bg-white p-1 rounded-pill shadow-sm d-flex gap-1 border">
-      <button class="btn btn-sm rounded-pill px-4 border-0 text-secondary">Active Users</button>
-      <button class="btn btn-sm rounded-pill px-4 border-0 bg-success text-white fw-bold" style="background-color: #00e676 !important; color: black !important;">Inactive Accounts</button>
-      <button class="btn btn-sm rounded-pill px-4 border-0 text-secondary">Archived</button>
-    </div>
+<div class="px-md-4 py-4">
+  <!-- หัวข้อหน้าย้ายไปอยู่ที่ header ด้านบนแล้ว -->
+  <p class="text-secondary small mb-4">ภาพรวมระบบแบบเรียลไทม์ — ผู้ใช้งาน โปรเจกต์ และบัญชีที่ต้องดูแล</p>
+
+  <div *ngIf="isLoading" class="d-flex flex-column align-items-center py-5">
+    <div class="spinner-border text-success" style="width:3rem; height:3rem;"></div>
+    <p class="text-muted mt-3 fw-bold">กำลังโหลดข้อมูล...</p>
   </div>
 
-  <div class="bg-white rounded-5 shadow-sm p-4 border-0">
-    
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div class="d-flex gap-2">
-        <select class="form-select form-select-sm rounded-pill border-light bg-light px-3" style="width: 150px;">
-          <option selected>> 1 year</option>
-          <option value="2">> 2 years</option>
-        </select>
-        <button class="btn btn-sm btn-light rounded-circle border"><i class="bi bi-filter"></i></button>
+  <div *ngIf="!isLoading">
+
+    <!-- ─── Overview stat cards (คำนวณจากข้อมูลจริงทั้งหมด) — การ์ดสีขาว + icon chip
+         สีตามความหมาย เหมือนหน้ารายงาน แทนที่การไล่สี gradient สุ่มสีต่อการ์ดแบบเดิม ───── -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-4 col-xl-3">
+        <div class="card admin-stat-card border-0 h-100 shadow-sm rounded-4 p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="kpi-icon kpi-icon-neutral"><i class="bi bi-people-fill"></i></span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">Total Users</small>
+          </div>
+          <div class="fw-bold text-dark" style="font-size:1.6rem">{{ totalUsers }}</div>
+          <small class="text-muted">บัญชีผู้ใช้ทั้งหมดในระบบ</small>
+        </div>
       </div>
 
-      <div class="d-flex align-items-center gap-2">
-        <span class="small text-muted me-2 fw-bold">2 Selected</span>
-        <button class="btn btn-sm btn-warning rounded-pill px-3 fw-bold text-white shadow-sm" style="background-color: #ff9800; border: none;">
-          <i class="bi bi-person-x-fill me-2"></i> BULK DEACTIVATE
-        </button>
-        <button class="btn btn-sm btn-secondary rounded-pill px-3 fw-bold shadow-sm" style="background-color: #607d8b; border: none;">
-          <i class="bi bi-archive-fill me-2"></i> BULK ARCHIVE
-        </button>
+      <div class="col-6 col-md-4 col-xl-3">
+        <div class="card admin-stat-card border-0 h-100 shadow-sm rounded-4 p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="kpi-icon kpi-icon-success"><i class="bi bi-person-check-fill"></i></span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">Active Users</small>
+          </div>
+          <div class="fw-bold text-success" style="font-size:1.6rem">{{ activeUserCount }}</div>
+          <small class="text-muted">ใช้งานอยู่ตามปกติ</small>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4 col-xl-3">
+        <div class="card admin-stat-card border-0 h-100 shadow-sm rounded-4 p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="kpi-icon kpi-icon-warning"><i class="bi bi-person-dash-fill"></i></span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">Dormant (&gt;3Y)</small>
+          </div>
+          <div class="fw-bold" style="font-size:1.6rem; color:#b45309">{{ dormantCount }}</div>
+          <small class="text-muted" *ngIf="dormantCount > 0">ต้องพิจารณา soft delete</small>
+          <small class="text-muted" *ngIf="dormantCount === 0">ไม่มีบัญชีที่ต้องเฝ้าระวัง</small>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4 col-xl-3">
+        <div class="card admin-stat-card border-0 h-100 shadow-sm rounded-4 p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="kpi-icon kpi-icon-neutral"><i class="bi bi-person-x-fill"></i></span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">Deactivated</small>
+          </div>
+          <div class="fw-bold text-dark" style="font-size:1.6rem">{{ deactivatedCount }}</div>
+          <small class="text-muted">ปิดใช้งานแล้ว</small>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4 col-xl-3">
+        <div class="card admin-stat-card border-0 h-100 shadow-sm rounded-4 p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="kpi-icon kpi-icon-info"><i class="bi bi-kanban-fill"></i></span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">Total Projects</small>
+          </div>
+          <div class="fw-bold text-dark" style="font-size:1.6rem">{{ totalProjects }}</div>
+          <small class="text-muted">โปรเจกต์ทั้งหมดในระบบ</small>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-4 col-xl-3">
+        <div class="card admin-stat-card border-0 h-100 shadow-sm rounded-4 p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="kpi-icon kpi-icon-success"><i class="bi bi-globe2"></i></span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">Public Projects</small>
+          </div>
+          <div class="fw-bold text-success" style="font-size:1.6rem">{{ publicProjectCount }}</div>
+          <small class="text-muted">แชร์ในหน้า Community</small>
+        </div>
+      </div>
+
+      <div class="col-12 col-xl-6">
+        <div class="card admin-stat-card border-0 h-100 shadow-sm rounded-4 p-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="kpi-icon kpi-icon-neutral"><i class="bi bi-cash-stack"></i></span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">Total Budget Tracked (THB)</small>
+          </div>
+          <div class="fw-bold text-dark" style="font-size:1.6rem">฿{{ totalBudgetTracked | number }}</div>
+          <small class="text-muted">งบประมาณรวมของทุกโปรเจกต์</small>
+        </div>
       </div>
     </div>
 
-    <div class="table-responsive">
-      <table class="table align-middle table-hover">
-        <thead class="bg-light">
-          <tr class="text-secondary small" style="font-size: 0.75rem;">
-            <th class="border-0 bg-light py-3 ps-3" style="width: 40px;">
-              <input type="checkbox" class="form-check-input shadow-none">
-            </th>
-            <th class="border-0 bg-light py-3">USER</th>
-            <th class="border-0 bg-light py-3">EMAIL</th>
-            <th class="border-0 bg-light py-3">ROLE</th>
-            <th class="border-0 bg-light py-3">STATUS</th>
-            <th class="border-0 bg-light py-3 text-center">LAST LOGIN</th>
-            <th class="border-0 bg-light py-3 pe-3 text-end">ACTIONS</th>
-          </tr>
-        </thead>
-        <tbody class="border-top-0">
-          <tr *ngFor="let user of users">
-            <td class="ps-3 py-3">
-              <input type="checkbox" class="form-check-input shadow-none" [checked]="user.selected">
-            </td>
-            <td class="py-3">
-              <div class="d-flex align-items-center">
-                <div class="rounded-circle bg-dark me-3 overflow-hidden" style="width: 38px; height: 38px;">
-                   </div>
-                <div>
-                  <div class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">{{user.name}}</div>
-                  <small class="text-muted" style="font-size: 0.7rem;">ROI Contributor</small>
+    <!-- ─── Tabs: Users / Projects ─────────────────────────────────────────── -->
+    <div class="bg-white p-1 rounded-pill shadow-sm d-inline-flex gap-1 border mb-3">
+      <button class="btn btn-sm rounded-pill px-4 border-0 fw-bold"
+        [ngClass]="activeTab === 'users' ? 'bg-success text-white' : 'text-secondary'"
+        (click)="activeTab = 'users'">
+        <i class="bi bi-people me-1"></i> Users
+      </button>
+      <button class="btn btn-sm rounded-pill px-4 border-0 fw-bold"
+        [ngClass]="activeTab === 'projects' ? 'bg-success text-white' : 'text-secondary'"
+        (click)="activeTab = 'projects'">
+        <i class="bi bi-kanban me-1"></i> All Projects
+      </button>
+      <button class="btn btn-sm rounded-pill px-4 border-0 fw-bold"
+        [ngClass]="activeTab === 'categories' ? 'bg-success text-white' : 'text-secondary'"
+        (click)="activeTab = 'categories'">
+        <i class="bi bi-tags me-1"></i> Categories
+      </button>
+    </div>
+
+    <!-- ─── Users table ────────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-4 shadow-sm p-4 border-0" *ngIf="activeTab === 'users'">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="fw-bold mb-0">User Accounts</h5>
+        <div class="d-flex align-items-center bg-light rounded-pill px-3 border" style="width: 280px; height: 40px;">
+          <i class="bi bi-search text-muted small"></i>
+          <input type="text" [(ngModel)]="userSearchTerm"
+            class="form-control border-0 bg-transparent shadow-none small"
+            placeholder="ค้นหาชื่อหรืออีเมล...">
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle table-hover">
+          <thead class="bg-light">
+            <tr class="text-secondary small" style="font-size: 0.75rem;">
+              <th class="border-0 bg-light py-3 ps-3">USER</th>
+              <th class="border-0 bg-light py-3">EMAIL</th>
+              <th class="border-0 bg-light py-3">ROLE</th>
+              <th class="border-0 bg-light py-3 text-center">PROJECTS</th>
+              <th class="border-0 bg-light py-3">STATUS</th>
+              <th class="border-0 bg-light py-3 text-center">LAST LOGIN</th>
+              <th class="border-0 bg-light py-3 pe-3 text-end">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody class="border-top-0">
+            <tr *ngFor="let user of filteredUsers">
+              <td class="ps-3 py-3">
+                <div class="d-flex align-items-center">
+                  <div class="rounded-circle bg-dark me-3 d-flex align-items-center justify-content-center text-white fw-bold"
+                    style="width: 38px; height: 38px; font-size: 0.9rem;">
+                    {{ user.full_name.charAt(0) }}
+                  </div>
+                  <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ user.full_name }}</div>
                 </div>
-              </div>
-            </td>
-            <td class="text-secondary" style="font-size: 0.85rem;">{{user.email}}</td>
-            <td>
-              <span class="badge rounded-pill bg-light text-dark border px-3 fw-normal" style="font-size: 0.75rem;">{{user.role}}</span>
-            </td>
-            <td>
-              <span class="badge rounded-pill bg-warning bg-opacity-10 text-warning px-3 border border-warning border-opacity-25" 
-                    style="font-size: 0.7rem; letter-spacing: 0.5px;">INACTIVE</span>
-            </td>
-            <td class="text-center">
-              <div class="fw-bold text-dark mb-0" style="font-size: 0.85rem;">{{user.lastLoginDate}}</div>
-              <small class="text-muted" style="font-size: 0.7rem;">{{user.monthsAgo}} months ago</small>
-            </td>
-            <td class="text-end pe-3">
-              <button class="btn btn-link text-muted p-0"><i class="bi bi-three-dots-vertical"></i></button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </td>
+              <td class="text-secondary" style="font-size: 0.85rem;">{{ user.email }}</td>
+              <td>
+                <span class="badge rounded-pill bg-light text-dark border px-3 fw-normal" style="font-size: 0.75rem;">
+                  {{ user.role }}
+                </span>
+              </td>
+              <td class="text-center text-secondary">{{ user.project_count }}</td>
+              <td>
+                <span *ngIf="!user.is_active" class="badge rounded-pill bg-secondary px-3"
+                  style="font-size: 0.7rem; letter-spacing: 0.5px;">DEACTIVATED</span>
+                <span *ngIf="user.is_active && user.is_dormant"
+                  class="badge rounded-pill bg-warning bg-opacity-10 text-warning px-3 border border-warning border-opacity-25"
+                  style="font-size: 0.7rem; letter-spacing: 0.5px;">DORMANT (&gt;3Y)</span>
+                <span *ngIf="user.is_active && !user.is_dormant"
+                  class="badge rounded-pill bg-success bg-opacity-10 text-success px-3 border border-success border-opacity-25"
+                  style="font-size: 0.7rem; letter-spacing: 0.5px;">ACTIVE</span>
+              </td>
+              <td class="text-center">
+                <span *ngIf="user.last_login_at; else neverLoggedIn" class="text-dark" style="font-size: 0.85rem;">
+                  {{ user.last_login_at | date:'mediumDate' }}
+                </span>
+                <ng-template #neverLoggedIn>
+                  <span class="text-muted" style="font-size: 0.85rem;">ไม่เคย login</span>
+                </ng-template>
+              </td>
+              <td class="text-end pe-3">
+                <button *ngIf="user.is_active && user.is_dormant" (click)="deactivate(user)"
+                  class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                  <i class="bi bi-person-x-fill me-1"></i>Deactivate
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div *ngIf="filteredUsers.length === 0" class="text-center text-muted py-5">
+          ไม่พบผู้ใช้ที่ตรงกับคำค้นหา
+        </div>
+      </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mt-4">
-      <small class="text-muted fw-bold" style="font-size: 0.75rem;">Showing 1 to 4 of 24 entries</small>
-      <nav>
-        <ul class="pagination pagination-sm mb-0 gap-2">
-          <li class="page-item"><a class="page-link rounded-circle border-0 text-muted bg-light px-2" href="#"><i class="bi bi-chevron-left"></i></a></li>
-          <li class="page-item"><a class="page-link rounded-circle border-0 bg-success text-white px-3" style="background-color: #00e676 !important; color: black !important;" href="#">1</a></li>
-          <li class="page-item"><a class="page-link rounded-circle border-0 text-dark bg-transparent px-3" href="#">2</a></li>
-          <li class="page-item"><a class="page-link rounded-circle border-0 text-dark bg-transparent px-3" href="#">3</a></li>
-          <li class="page-item"><a class="page-link rounded-circle border-0 text-muted bg-light px-2" href="#"><i class="bi bi-chevron-right"></i></a></li>
-        </ul>
-      </nav>
+    <!-- ─── All Projects table (ภาพรวมทั้งระบบ สำหรับ monitor) ─────────────── -->
+    <div class="bg-white rounded-4 shadow-sm p-4 border-0" *ngIf="activeTab === 'projects'">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="fw-bold mb-0">All Projects</h5>
+        <div class="d-flex align-items-center bg-light rounded-pill px-3 border" style="width: 280px; height: 40px;">
+          <i class="bi bi-search text-muted small"></i>
+          <input type="text" [(ngModel)]="projectSearchTerm"
+            class="form-control border-0 bg-transparent shadow-none small"
+            placeholder="ค้นหาชื่อโปรเจกต์หรือเจ้าของ...">
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle table-hover">
+          <thead class="bg-light">
+            <tr class="text-secondary small" style="font-size: 0.75rem;">
+              <th class="border-0 bg-light py-3 ps-3">PROJECT</th>
+              <th class="border-0 bg-light py-3">OWNER</th>
+              <th class="border-0 bg-light py-3">TYPE</th>
+              <th class="border-0 bg-light py-3">BUDGET</th>
+              <th class="border-0 bg-light py-3">STATUS</th>
+              <th class="border-0 bg-light py-3 pe-3">VISIBILITY</th>
+            </tr>
+          </thead>
+          <tbody class="border-top-0">
+            <tr *ngFor="let prj of filteredProjects">
+              <td class="ps-3 py-3">
+                <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ prj.project_name }}</div>
+                <small class="text-muted">PRJ-{{ prj.project_id }}</small>
+              </td>
+              <td class="text-secondary" style="font-size: 0.85rem;">
+                <div>{{ prj.owner_name || '-' }}</div>
+                <small class="text-muted">{{ prj.owner_email }}</small>
+              </td>
+              <td class="text-secondary" style="font-size: 0.85rem;">{{ prj.project_type || '-' }}</td>
+              <td class="fw-bold text-dark">฿{{ prj.initial_budget | number }}</td>
+              <td>
+                <span class="badge rounded-pill px-3 py-1"
+                  [ngClass]="prj.status === 'Actual' ? 'bg-success' : 'bg-light text-muted border'">
+                  {{ prj.status }}
+                </span>
+              </td>
+              <td class="pe-3">
+                <span class="badge rounded-pill d-inline-flex align-items-center gap-1 px-3"
+                  [ngClass]="prj.is_public ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25' : 'bg-light text-muted border'">
+                  <i class="bi" [ngClass]="prj.is_public ? 'bi-globe2' : 'bi-lock-fill'"></i>
+                  {{ prj.is_public ? 'Public' : 'Private' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div *ngIf="filteredProjects.length === 0" class="text-center text-muted py-5">
+          ไม่พบโปรเจกต์ที่ตรงกับคำค้นหา
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Categories table ──────────────────────────────────────────────── -->
+    <div class="bg-white rounded-4 shadow-sm p-4 border-0" *ngIf="activeTab === 'categories'">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="fw-bold mb-0">Revenue / Expense Categories</h5>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <div class="d-flex align-items-center bg-light rounded-pill px-3 border" style="width: 240px; height: 40px;">
+            <i class="bi bi-search text-muted small"></i>
+            <input type="text" [(ngModel)]="categorySearchTerm"
+              class="form-control border-0 bg-transparent shadow-none small"
+              placeholder="ค้นหาหมวดหมู่...">
+          </div>
+          <button class="btn btn-success rounded-pill px-3 fw-bold" (click)="openCreateCategory()">
+            <i class="bi bi-plus-lg me-1"></i>เพิ่มหมวดหมู่
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle table-hover">
+          <thead class="bg-light">
+            <tr class="text-secondary small" style="font-size: 0.75rem;">
+              <th class="border-0 bg-light py-3 ps-3">NAME</th>
+              <th class="border-0 bg-light py-3">TYPE</th>
+              <th class="border-0 bg-light py-3">GROUP</th>
+              <th class="border-0 bg-light py-3 pe-3 text-end">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody class="border-top-0">
+            <tr *ngFor="let cat of filteredCategories">
+              <td class="ps-3 py-3 fw-bold text-dark" style="font-size: 0.9rem;">{{ cat.category_name }}</td>
+              <td>
+                <span class="badge rounded-pill px-3"
+                  [ngClass]="cat.is_inflow ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25' : 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25'">
+                  <i class="bi" [ngClass]="cat.is_inflow ? 'bi-arrow-up-circle' : 'bi-arrow-down-circle'"></i>
+                  {{ cat.type_name }}
+                </span>
+              </td>
+              <td class="text-secondary" style="font-size: 0.85rem;">{{ cat.category_group }}</td>
+              <td class="text-end pe-3">
+                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 me-1" (click)="openEditCategory(cat)">
+                  <i class="bi bi-pencil-square me-1"></i>แก้ไข
+                </button>
+                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" (click)="deleteCategory(cat)">
+                  <i class="bi bi-trash3 me-1"></i>ลบ
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div *ngIf="filteredCategories.length === 0" class="text-center text-muted py-5">
+          ไม่พบหมวดหมู่ที่ตรงกับคำค้นหา
+        </div>
+      </div>
     </div>
   </div>
-</main>
+
+  <!-- ─── Category Add/Edit Modal ────────────────────────────────────────── -->
+  <div *ngIf="showCategoryForm" class="modal-backdrop-custom" (click)="closeCategoryForm()">
+    <div class="card border-0 shadow-lg rounded-4 p-4 modal-panel-custom" (click)="$event.stopPropagation()">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-tags me-2 text-success"></i>
+          {{ categoryFormMode === 'create' ? 'เพิ่มหมวดหมู่ใหม่' : 'แก้ไขหมวดหมู่' }}
+        </h5>
+        <button class="btn-close" (click)="closeCategoryForm()"></button>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted text-uppercase">ชื่อหมวดหมู่</label>
+        <input type="text" class="form-control rounded-3" [(ngModel)]="categoryForm.category_name"
+          placeholder="เช่น ค่าที่ปรึกษาภายนอก">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted text-uppercase">ประเภท</label>
+        <select class="form-select rounded-3" [(ngModel)]="categoryForm.type_id">
+          <option [ngValue]="null" disabled>เลือกประเภท...</option>
+          <option *ngFor="let t of entryTypes" [ngValue]="t.type_id">
+            {{ t.type_name }} ({{ t.is_inflow ? 'รายรับ' : 'รายจ่าย' }})
+          </option>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label small fw-bold text-muted text-uppercase">กลุ่ม (Category Group)</label>
+        <select class="form-select rounded-3" [(ngModel)]="categoryForm.category_group">
+          <option value="" disabled>เลือกกลุ่ม...</option>
+          <option *ngFor="let g of categoryGroups" [value]="g.value">{{ g.label }}</option>
+        </select>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2">
+        <button class="btn btn-outline-secondary rounded-pill px-4" (click)="closeCategoryForm()" [disabled]="isSavingCategory">
+          ยกเลิก
+        </button>
+        <button class="btn btn-success rounded-pill px-4 fw-bold" (click)="saveCategory()" [disabled]="isSavingCategory">
+          <span *ngIf="isSavingCategory" class="spinner-border spinner-border-sm me-2"></span>
+          บันทึก
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

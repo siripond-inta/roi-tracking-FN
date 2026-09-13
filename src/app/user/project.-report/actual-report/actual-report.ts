@@ -4,6 +4,9 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../../services/project.service';
+import { AuthService } from '../../../services/auth.service';
+import { PageHeaderService } from '../../../services/page-header.service';
+import { CategoryService, Category } from '../../../services/category.service';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
@@ -33,6 +36,8 @@ export class ActualReport implements OnInit {
   actualLedger: ProjectLedger[] = [];
 
   mode: 'view' | 'edit' = 'view';
+  isOwner = false; // false = กำลังดูโปรเจกต์ของคนอื่นผ่านหน้า Community (read-only)
+  isPublic = false;
   revenueRows: LedgerRow[] = [];
   expenseRows: LedgerRow[] = [];
 
@@ -50,22 +55,14 @@ export class ActualReport implements OnInit {
   actROI = 0;
   actPaybackMonths: number | null = null;
 
-  // ─── หมวดหมู่ ─────────────────────────────────────────────────────────────
-  readonly revenueCategories = [
-    { id: 'REV001', name: 'การสร้างรายรับ' },
-    { id: 'REV002', name: 'การประหยัดต้นทุน' }
-  ];
-
-  readonly expenseCategories = [
-    { id: 'CAT001', name: 'ต้นทุนดำเนินการ' },
-    { id: 'CAT002', name: 'ต้นทุนพัฒนา' },
-    { id: 'CAT003', name: 'ต้นทุนทั่วไป' }
-  ];
-
-  readonly allCategories = [
-    ...this.revenueCategories,
-    ...this.expenseCategories
-  ];
+  // ─── หมวดหมู่ (ดึงจาก database ผ่าน API) ────────────────────────────────────
+  allCategories: Category[] = [];
+  get revenueCategories(): Category[] {
+    return this.allCategories.filter(c => c.is_inflow);
+  }
+  get expenseCategories(): Category[] {
+    return this.allCategories.filter(c => !c.is_inflow);
+  }
 
   // ─── Real-time Live Calculations ───────────────────────────────────────────
   get liveRevenue(): number {
@@ -116,6 +113,9 @@ export class ActualReport implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private projectService: ProjectService,
+    public authService: AuthService,
+    private pageHeader: PageHeaderService,
+    private categoryService: CategoryService,
     private http: HttpClient
   ) {}
 
@@ -129,16 +129,23 @@ export class ActualReport implements OnInit {
     this.isLoading = true;
     forkJoin({
       project: this.projectService.getProjectById(this.projectId),
-      ledgers: this.projectService.getLedgersByProjectId(this.projectId)
+      ledgers: this.projectService.getLedgersByProjectId(this.projectId),
+      categories: this.categoryService.getCategories()
     }).subscribe({
       next: (result) => {
+        this.allCategories = result.categories;
         this.project = result.project;
+        this.isOwner = result.project.user_id === this.authService.currentUser()?.userId;
+        this.isPublic = !!result.project.is_public;
+        this.pageHeader.set('Actual Report', result.project.project_name);
         this.estimatedLedger = result.ledgers.filter(l => l.phase === 'Estimated');
         this.actualLedger = result.ledgers.filter(l => l.phase === 'Actual');
         this.calculateMetrics();
         this.isLoading = false;
 
-        if (openEditIfEmpty || this.actualLedger.length === 0) {
+        // เฉพาะเจ้าของเท่านั้นที่เข้าสู่โหมดแก้ไขอัตโนมัติได้ — ผู้ที่เข้ามาดูผ่านหน้า
+        // Community ต้องเห็นแค่โหมดดูอย่างเดียว
+        if (this.isOwner && (openEditIfEmpty || this.actualLedger.length === 0)) {
           this.startEdit();
         } else {
           this.mode = 'view';
@@ -222,7 +229,7 @@ export class ActualReport implements OnInit {
 
   newBlankRevenueRow(): LedgerRow {
     return {
-      category_id: 'REV001',
+      category_id: this.revenueCategories[0]?.category_id || '',
       transaction_date: this.getDefaultDate(),
       total_value: 0,
       note: '',
@@ -232,12 +239,19 @@ export class ActualReport implements OnInit {
 
   newBlankExpenseRow(): LedgerRow {
     return {
-      category_id: 'CAT002',
+      category_id: this.expenseCategories[0]?.category_id || '',
       transaction_date: this.getDefaultDate(),
       total_value: 0,
       note: '',
       type_id: 1
     };
+  }
+
+  // สัดส่วน (%) ของแถวนี้เทียบกับยอดรวมฝั่งเดียวกัน — ใช้แสดงแถบเล็กใต้แต่ละแถวในโหมดแก้ไข
+  rowShare(row: LedgerRow, total: number): number {
+    const v = Number(row.total_value) || 0;
+    if (total <= 0 || v <= 0) return 0;
+    return Math.min(100, (v / total) * 100);
   }
 
   addRevenueRow(): void {
@@ -379,6 +393,38 @@ export class ActualReport implements OnInit {
     window.print();
   }
 
+  get today(): Date {
+    return new Date();
+  }
+
+  // ─── Visibility Toggle ─────────────────────────────────────────────────────
+  async toggleVisibility(): Promise<void> {
+    const newState = !this.isPublic;
+    const result = await Swal.fire({
+      icon: 'question',
+      title: newState ? 'เปลี่ยนเป็นสาธารณะ?' : 'เปลี่ยนเป็นส่วนตัว?',
+      text: newState ? 'ทุกคนจะสามารถดูรายงานนี้ได้' : 'เฉพาะคุณเท่านั้นที่จะเห็น',
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยัน',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#198754'
+    });
+    if (!result.isConfirmed) return;
+
+    this.projectService.toggleVisibility(this.projectId, newState).subscribe({
+      next: () => {
+        this.isPublic = newState;
+        Swal.fire({
+          icon: 'success',
+          title: newState ? 'เปลี่ยนเป็นสาธารณะแล้ว' : 'เปลี่ยนเป็นส่วนตัวแล้ว',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      },
+      error: () => Swal.fire({ icon: 'error', title: 'ไม่สำเร็จ' })
+    });
+  }
+
   // ─── KPI Calculations ──────────────────────────────────────────────────────
   private calculateMetrics(): void {
     const duration = Number(this.project?.duration_months || 0);
@@ -433,6 +479,6 @@ export class ActualReport implements OnInit {
   }
 
   getCategoryName(id: string): string {
-    return this.allCategories.find(c => c.id === id)?.name || id;
+    return this.allCategories.find(c => c.category_id === id)?.category_name || id;
   }
 }

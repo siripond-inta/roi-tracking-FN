@@ -5,6 +5,8 @@ import { ProjectService } from '../../../../services/project.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../../services/toast.service';
+import { CategoryService, Category } from '../../../../services/category.service';
+import { forkJoin } from 'rxjs';
 
 // Interface แทน any[] — ระบุ Type ชัดเจน ทำให้ IDE แจ้งเตือนได้ถ้ากรอก field ผิด
 interface ActualRow {
@@ -30,10 +32,14 @@ export class ActualForm2 implements OnInit {
   // ใช้ ActualRow interface แทน any[] เพื่อ Type Safety
   actualRows: ActualRow[] = [];
 
+  // หมวดหมู่ (ดึงจาก database ผ่าน API)
+  allCategories: Category[] = [];
+
   constructor(
     private projectService: ProjectService,
     private router: Router,
-    private toastService: ToastService
+    private toastService: ToastService,
+    private categoryService: CategoryService
   ) {}
 
   ngOnInit(): void {
@@ -47,7 +53,7 @@ export class ActualForm2 implements OnInit {
 
     this.isLoading = true;
 
-    // ดึงข้อมูลโปรเจกต์และ Estimated Ledger เพื่อ pre-fill
+    // ดึงข้อมูลโปรเจกต์เพื่อ pre-fill
     this.projectService.getProjectById(this.projectId).subscribe({
       next: (project) => {
         this.projectName = project.project_name;
@@ -59,9 +65,13 @@ export class ActualForm2 implements OnInit {
       }
     });
 
-    // ดึง Estimated Ledger เพื่อ pre-fill แถว Actual ให้ผู้ใช้แก้แค่ตัวเลข
-    this.projectService.getLedgersByProjectId(this.projectId).subscribe({
-      next: (ledgers) => {
+    // ดึงหมวดหมู่ + Estimated Ledger พร้อมกัน เพื่อ pre-fill แถว Actual ให้ผู้ใช้แก้แค่ตัวเลข
+    forkJoin({
+      categories: this.categoryService.getCategories(),
+      ledgers: this.projectService.getLedgersByProjectId(this.projectId)
+    }).subscribe({
+      next: ({ categories, ledgers }) => {
+        this.allCategories = categories;
         const estimatedLedgers = ledgers.filter(l => l.phase === 'Estimated');
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
@@ -75,32 +85,45 @@ export class ActualForm2 implements OnInit {
             transaction_date: today
           }));
         } else {
-          // ถ้าไม่มี Estimated → สร้างแถวว่างเริ่มต้น
-          this.actualRows = [
-            { category: 'REV001', note: 'Actual Revenue', amount: 0, type_id: 2, transaction_date: today },
-            { category: 'CAT002', note: 'Actual Expense (Labor)', amount: 0, type_id: 1, transaction_date: today },
-            { category: 'CAT001', note: 'Actual Maintenance (Hardware)', amount: 0, type_id: 1, transaction_date: today }
-          ];
+          // ถ้าไม่มี Estimated → สร้างแถวว่างเริ่มต้น (รายรับ 1 แถว + รายจ่าย 1 แถว)
+          this.actualRows = [this.newBlankRow(2), this.newBlankRow(1)];
         }
         this.isLoading = false;
       },
       error: (err) => {
-        console.error('Error fetching estimated ledgers:', err);
+        console.error('Error fetching categories/estimated ledgers:', err);
         this.isLoading = false;
-        // Fallback: สร้างแถวว่างเริ่มต้น
-        const today = new Date().toISOString().split('T')[0];
-        this.actualRows = [
-          { category: 'REV001', note: 'Actual Revenue', amount: 0, type_id: 2, transaction_date: today },
-          { category: 'CAT002', note: 'Actual Expense', amount: 0, type_id: 1, transaction_date: today }
-        ];
+        this.actualRows = [this.newBlankRow(2), this.newBlankRow(1)];
       }
     });
   }
 
+  // หมวดหมู่ที่ตรงกับประเภท (รายรับ/รายจ่าย) ของแถวนั้นๆ
+  categoriesForType(typeId: number): Category[] {
+    const wantInflow = Number(typeId) === 2;
+    return this.allCategories.filter(c => c.is_inflow === wantInflow);
+  }
+
+  private newBlankRow(typeId: number): ActualRow {
+    const today = new Date().toISOString().split('T')[0];
+    const firstCategory = this.categoriesForType(typeId)[0];
+    return {
+      category: firstCategory?.category_id || '',
+      note: typeId === 2 ? 'Actual Revenue' : 'Actual Expense',
+      amount: 0,
+      type_id: typeId,
+      transaction_date: today
+    };
+  }
+
+  // เมื่อเปลี่ยนประเภท (Expense/Revenue) หมวดหมู่เดิมอาจไม่ตรงชนิดแล้ว รีเซ็ตเป็นตัวเลือกแรกของประเภทใหม่
+  onTypeChange(row: ActualRow): void {
+    row.category = this.categoriesForType(row.type_id)[0]?.category_id || '';
+  }
+
   // ─── เพิ่ม/ลบแถว ──────────────────────────────────────────────────────────
   addRow(): void {
-    const today = new Date().toISOString().split('T')[0];
-    this.actualRows.push({ category: 'CAT001', note: '', amount: 0, type_id: 1, transaction_date: today });
+    this.actualRows.push(this.newBlankRow(1));
   }
 
   removeRow(index: number): void {

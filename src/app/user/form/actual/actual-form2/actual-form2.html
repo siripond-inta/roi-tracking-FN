@@ -48,16 +48,15 @@
         <div class="d-flex flex-column gap-3 mb-4">
           <div class="row g-2 align-items-center" *ngFor="let row of actualRows; let i = index">
             <div class="col-2">
-              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none small" [(ngModel)]="row.type_id">
+              <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none small"
+                [(ngModel)]="row.type_id" (ngModelChange)="onTypeChange(row)">
                 <option [ngValue]="1">Expense</option>
                 <option [ngValue]="2">Revenue</option>
               </select>
             </div>
             <div class="col-2">
               <select class="form-select bg-light border-0 rounded-pill px-3 shadow-none small" [(ngModel)]="row.category">
-                <option value="REV001">Revenue Generation</option>
-                <option value="CAT002">Development Cost (INV)</option>
-                <option value="CAT001">Operations Cost (OPC)</option>
+                <option *ngFor="let c of categoriesForType(row.type_id)" [value]="c.category_id">{{ c.category_name }}</option>
               </select>
             </div>
             <div class="col-2">
