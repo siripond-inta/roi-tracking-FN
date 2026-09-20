@@ -1,5 +1,69 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* ─── Responsive: จอแคบกว่า lg ───────────────────────────────────────────────
+   sidebar ถูกกำหนดความกว้าง 280px + height:100vh ไว้แบบ inline เพื่อให้คงที่บนจอใหญ่
+   แต่บนมือถือมันกินพื้นที่จนเหลือที่ให้เนื้อหาแค่ร้อยกว่า px และตารางถูกตัดจนเลื่อนไปดูไม่ได้
+   บนจอแคบจึงพลิกให้ sidebar กลายเป็นแถบเมนูแนวนอนด้านบน แล้วปล่อยให้ทั้งหน้าเลื่อนตามปกติ
+   (ใช้ !important เพราะต้อง override inline style ที่ติดมากับ element) */
+@media (max-width: 991.98px) {
+  .app-shell {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh;
+    overflow: visible !important;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    height: auto !important;
+    overflow-y: visible !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 0.5rem !important;
+  }
+
+  /* เมนูเรียงแนวนอน เลื่อนซ้าย-ขวาได้ แทนการเรียงลงมากินความสูง
+     ต้องล็อก width ไว้ที่ 100% ด้วย ไม่งั้น ul จะยืดตามความกว้างของเมนูทั้งหมดแล้วล้นออกนอกจอ
+     โดยที่ overflow-x ไม่ทำงาน (เลื่อนดูเมนูที่เกินขอบไม่ได้) */
+  .sidebar .nav-pills {
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.25rem;
+    margin-bottom: 0 !important;
+    padding-bottom: 0.25rem;
+  }
+
+  .sidebar .nav-item {
+    margin-bottom: 0 !important;
+  }
+
+  .sidebar .nav-link {
+    white-space: nowrap;
+  }
+
+  /* เส้นคั่นกับระยะห่างใหญ่ๆ ของ layout แนวตั้ง ไม่จำเป็นบนแถบแนวนอน */
+  .sidebar hr {
+    display: none;
+  }
+
+  .sidebar > a {
+    margin-top: 0 !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .app-content-col {
+    height: auto !important;
+  }
+
+  .app-main-scroll {
+    overflow: visible !important;
+  }
+}
+
 /* ─── Print (Actual Report → "พิมพ์ / PDF") ──────────────────────────────────
    ต้องอยู่ที่ global stylesheet นี้ (ไม่ใช่ css ของ component รายงาน) เพราะ sidebar/header
    เป็นส่วนของ UserLayout ซึ่งเป็น parent component — Angular scope css ของ component ลูก
@@ -27,5 +91,55 @@
     background: #fff !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* ─── กันเนื้อหาถูกตัดครึ่งคาบเกี่ยวสองหน้า ────────────────────────────────
+     เบราว์เซอร์จะตัดหน้าตรงไหนก็ได้ถ้าไม่บอก ทำให้การ์ด/กราฟ/แถวตารางขาดกลาง
+     break-inside: avoid = ถ้าใส่ในหน้านี้ไม่หมด ให้ยกไปขึ้นหน้าใหม่ทั้งก้อน */
+  .card,
+  .chart-print-only,
+  .ledger-row-card,
+  canvas {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* ข้อยกเว้น: บล็อกที่สูงเกินหนึ่งหน้าอยู่แล้ว (เช่นตารางยาวๆ) ถ้าสั่ง avoid เบราว์เซอร์จะดัน
+     ไปขึ้นหน้าใหม่แล้วก็ยังตัดอยู่ดี กลายเป็นเหลือหน้าว่างเปล่าก่อนหน้า — บล็อกพวกนี้ให้แบ่งได้
+     แต่ไปคุมความเรียบร้อยที่ระดับ "แถว" แทน (ดูกฎ tr/th/td ด้านล่าง) */
+  .print-allow-break,
+  .print-allow-break .table-responsive {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  /* แถวตารางไม่ขาดกลางแถว และหัวตารางซ้ำให้ทุกหน้าที่ตารางยาวข้ามหน้า */
+  tr, th, td {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tfoot {
+    display: table-footer-group;
+  }
+
+  /* หัวข้อห้ามค้างท้ายหน้าโดยที่เนื้อหาไปอยู่หน้าถัดไป */
+  h1, h2, h3, h4, h5, h6,
+  .card-header {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* ระยะขอบกระดาษ */
+  @page {
+    margin: 12mm;
+  }
+
+  /* ตัวช่วยสำหรับสั่งขึ้นหน้าใหม่เองเมื่อจำเป็น */
+  .print-page-break {
+    break-before: page;
+    page-break-before: always;
   }
 }

@@ -39,9 +39,6 @@ import { Projects } from './user/projects/projects';
 import { Settings } from './user/settings/settings';
 import { Security } from './user/settings/security/security';
 import { EstimatedForm1 } from './user/form/estimated/estimated-form1/estimated-form1';
-import { EstimatedForm2 } from './user/form/estimated/estimated-form2/estimated-form2';
-import { ActualForm1 } from './user/form/actual/actual-form1/actual-form1';
-import { ActualForm2 } from './user/form/actual/actual-form2/actual-form2';
 import { Login } from './login/login'; // แก้ Path ตามที่คุณย้ายมาไว้ข้างนอก
 import { Signup } from './signup/signup';
 import { UserManagement } from './admin/user-management/user-management';
@@ -74,9 +71,13 @@ export const routes: Routes = [
             { path: 'settings', component: Settings, data: { title: 'Settings', subtitle: 'Account Settings' } },
             { path: 'security', component: Security, data: { title: 'Settings', subtitle: 'Security' } },
             { path: 'estimated-form1', component: EstimatedForm1 },
-            { path: 'estimated-form2', component: EstimatedForm2 },
-            { path: 'actual-form1', component: ActualForm1 },
-            { path: 'actual-form2', component: ActualForm2 },
+            // ฟอร์ม wizard แบบเก่า (estimated-form2 / actual-form1 / actual-form2) เลิกใช้แล้ว —
+            // มันบันทึกทุกรายการลงงวดที่ 1 เสมอ และไม่รองรับประโยชน์ทางอ้อมแบบ ปริมาณ × อัตรา
+            // ตอนนี้กรอกข้อมูลทั้งหมดที่หน้ารายงานแทน (รองรับรายเดือนครบตาม FR03-2/FR03-4)
+            // คง redirect ไว้กันคนที่ bookmark URL เดิมไว้เปิดแล้วเจอหน้าที่บันทึกข้อมูลผิดรูปแบบ
+            { path: 'estimated-form2', redirectTo: 'projects', pathMatch: 'full' },
+            { path: 'actual-form1', redirectTo: 'projects', pathMatch: 'full' },
+            { path: 'actual-form2', redirectTo: 'projects', pathMatch: 'full' },
             { path: 'estimated-report/:id', component: EstimatedReport},
             { path: 'actual-report/:id', component: ActualReport},
             { path: '', redirectTo: 'community', pathMatch: 'full' }

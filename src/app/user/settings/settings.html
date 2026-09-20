@@ -35,7 +35,14 @@
 
         <div class="mb-4">
           <h6 class="fw-bold mb-1">Email Address</h6>
-          <p class="text-muted small mb-3">To update your primary email address, please provide your current password.</p>
+          <!-- ช่องรหัสผ่านโผล่เฉพาะตอนแก้อีเมลจริงๆ ข้อความอธิบายจึงต้องเปลี่ยนตามด้วย
+               ไม่งั้นจะบอกให้กรอกรหัสผ่านทั้งที่ยังไม่มีช่องให้กรอก -->
+          <p class="text-muted small mb-3" *ngIf="!emailChanged">
+            แก้ไขอีเมลได้ที่ช่องด้านล่าง — ระบบจะขอรหัสผ่านปัจจุบันเพื่อยืนยันเมื่อคุณเปลี่ยนอีเมล
+          </p>
+          <p class="text-muted small mb-3" *ngIf="emailChanged">
+            คุณกำลังเปลี่ยนอีเมล กรุณากรอกรหัสผ่านปัจจุบันเพื่อยืนยัน
+          </p>
 
           <div class="bg-light p-4 rounded-4">
             <div class="mb-3">

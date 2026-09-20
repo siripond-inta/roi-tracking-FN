@@ -127,6 +127,14 @@ export class AuthService {
     return this.currentUser()?.role ?? null;
   }
 
+  // FR01-2: บัญชีระดับ viewer ดูได้อย่างเดียว — ใช้ซ่อนปุ่มสร้าง/แก้ไข/ลบในหน้าเว็บ
+  // (backend บล็อกอยู่แล้วด้วย verifyProjectWriter แต่ถ้ายังโชว์ปุ่มไว้ ผู้ใช้จะกดแล้วเจอ error
+  //  ทั้งที่จริงๆ แค่ไม่มีสิทธิ์ตั้งแต่แรก)
+  canEditProjects(): boolean {
+    const role = this.getRole();
+    return role === 'project_owner' || role === 'admin';
+  }
+
   // ตรวจว่า user ที่แท็บนี้จำไว้ ตรงกับ user ใน localStorage (ซึ่งคือเจ้าของ token ที่จะถูกแนบไป
   // กับทุก API call จริงๆ) หรือไม่ — ใช้เป็นด่านที่สองเผื่อ storage event ไม่ยิง เช่นแท็บถูก
   // suspend หรือถูกกู้คืนจาก back/forward cache
