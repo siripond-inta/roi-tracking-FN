@@ -7,18 +7,21 @@ import { ProjectService } from '../../../services/project.service';
 import { AuthService } from '../../../services/auth.service';
 import { PageHeaderService } from '../../../services/page-header.service';
 import { CategoryService, Category } from '../../../services/category.service';
+import { AnalyticsService, ProjectAnalytics } from '../../../services/analytics.service';
 import { HttpClient } from '@angular/common/http';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
+import {
+  LedgerRow,
+  findCategory,
+  isQtyBased,
+  periodOptions,
+  rowTotal,
+  sumRows,
+  toPayload,
+} from '../ledger-row.util';
 
-export interface LedgerRow {
-  ledger_id?: number;
-  category_id: string;
-  transaction_date: string;
-  total_value: number | null;
-  note: string;
-  type_id: number; // 1=รายจ่าย, 2=รายรับ
-}
+export type { LedgerRow };
 
 @Component({
   selector: 'app-estimated-report',
@@ -40,7 +43,8 @@ export class EstimatedReport implements OnInit {
   revenueRows: LedgerRow[] = [];
   expenseRows: LedgerRow[] = [];
 
-  // ─── KPI Metrics (จากฐานข้อมูลที่บันทึกแล้ว) ──────────────────────────────────
+  // ─── KPI Metrics — คำนวณโดย backend ทั้งหมด (FR04) ────────────────────────────
+  analytics?: ProjectAnalytics;
   totalEstRevenue = 0;
   totalEstExpense = 0;
   estNetProfit = 0;
@@ -56,13 +60,47 @@ export class EstimatedReport implements OnInit {
     return this.allCategories.filter(c => !c.is_inflow);
   }
 
+  // ─── ตัวช่วยของฟอร์มรายแถว (ใช้ร่วมกับหน้า Actual Report) ──────────────────
+  get periods(): number[] {
+    return periodOptions(this.project?.duration_months);
+  }
+
+  categoryOf(row: LedgerRow): Category | undefined {
+    return findCategory(this.allCategories, row.category_id);
+  }
+
+  // FR03-4: หมวดประโยชน์ทางอ้อมกรอกเป็น "ปริมาณ × อัตรา" แทนยอดเงินตรงๆ
+  isQtyRow(row: LedgerRow): boolean {
+    return isQtyBased(this.categoryOf(row));
+  }
+
+  rowAmount(row: LedgerRow): number {
+    return rowTotal(row, this.allCategories);
+  }
+
+  // เปลี่ยนหมวดหมู่แล้วรูปแบบการกรอกอาจเปลี่ยน (ยอดเงิน ↔ ปริมาณ×อัตรา)
+  // สำคัญ: ต้องไม่ทำให้ยอดที่กรอกไว้แล้วหายไป — เก็บยอดเดิมไว้เสมอ ผู้ใช้จะได้ไม่เสียข้อมูล
+  // เพราะเผลอเลือกหมวดผิดแล้วเลือกกลับ (แถวที่ยอดเป็น 0 จะถูกข้ามตอนบันทึกด้วย)
+  onCategoryChange(row: LedgerRow): void {
+    const previousAmount = this.rowAmount(row);
+    if (this.isQtyRow(row)) {
+      // ยังไม่ต้องล้าง total_value — rowTotal จะใช้ยอดเดิมไปก่อนจนกว่าจะกรอกปริมาณ/อัตรา
+      row.total_value = previousAmount;
+    } else {
+      // กลับมาเป็นหมวดยอดเงิน: ย้ายยอดที่คำนวณได้จาก ปริมาณ×อัตรา มาเป็นยอดเงินตรงๆ
+      row.unit_qty = null;
+      row.unit_cost = null;
+      row.total_value = previousAmount;
+    }
+  }
+
   // ─── Real-time Calculations (คำนวณสดอัตโนมัติขณะกรอก) ───────────────────────
   get liveRevenue(): number {
-    return this.revenueRows.reduce((sum, r) => sum + (Number(r.total_value) || 0), 0);
+    return sumRows(this.revenueRows, this.allCategories);
   }
 
   get liveExpense(): number {
-    return this.expenseRows.reduce((sum, r) => sum + (Number(r.total_value) || 0), 0);
+    return sumRows(this.expenseRows, this.allCategories);
   }
 
   get liveNet(): number {
@@ -74,13 +112,36 @@ export class EstimatedReport implements OnInit {
     return ((this.liveRevenue - this.liveExpense) / this.liveExpense) * 100;
   }
 
+  // FR04-3: ระยะเวลาคืนทุน = เดือนแรกที่กระแสเงินสดสะสม >= เงินลงทุนเริ่มต้น
+  // (คำนวณสดจากแถวที่กำลังกรอก ให้ผู้ใช้เห็นผลทันทีก่อนกดบันทึก — ตรรกะเดียวกับฝั่ง backend)
   get livePaybackMonths(): number | null {
-    const duration = Number(this.project?.duration_months || 0);
-    const monthlyRevenue = duration > 0 ? this.liveRevenue / duration : 0;
-    if (monthlyRevenue > 0 && this.liveExpense > 0) {
-      return this.liveExpense / monthlyRevenue;
+    const initialBudget = Number(this.project?.initial_budget || 0);
+    if (initialBudget <= 0) return null;
+
+    let cumulative = 0;
+    for (const period of this.periods) {
+      const revenue = sumRows(
+        this.revenueRows.filter((r) => r.period_index === period),
+        this.allCategories
+      );
+      const expense = sumRows(
+        this.expenseRows.filter((r) => r.period_index === period),
+        this.allCategories
+      );
+      cumulative += revenue - expense;
+      if (cumulative >= initialBudget) return period;
     }
     return null;
+  }
+
+  // FR04-4: สถานะคุ้มค่า/ไม่คุ้มค่า เทียบ ROI กับเป้าหมายของโครงการ
+  get targetRoi(): number | null {
+    return this.project?.target_roi_percent ?? null;
+  }
+
+  get isWorthwhile(): boolean | null {
+    if (this.targetRoi == null) return null;
+    return this.displayedROI >= this.targetRoi;
   }
 
   // ตัวเลขสรุปที่จะแสดงบน 6 การ์ดด้านบน (สลับระหว่างค่าสดในโหมดแก้ไข กับค่าที่บันทึกในโหมดดูผล)
@@ -111,6 +172,7 @@ export class EstimatedReport implements OnInit {
     private authService: AuthService,
     private pageHeader: PageHeaderService,
     private categoryService: CategoryService,
+    private analyticsService: AnalyticsService,
     private http: HttpClient
   ) {}
 
@@ -122,10 +184,12 @@ export class EstimatedReport implements OnInit {
     forkJoin({
       project: this.projectService.getProjectById(id),
       ledger: this.projectService.getLedgersByProjectId(id),
-      categories: this.categoryService.getCategories()
+      categories: this.categoryService.getCategories(),
+      analytics: this.analyticsService.getProjectAnalytics(id)
     }).subscribe({
       next: (result) => {
         this.allCategories = result.categories;
+        this.analytics = result.analytics;
         this.project = result.project;
         this.isPublic = !!result.project.is_public;
         this.isOwner = result.project.user_id === this.authService.currentUser()?.userId;
@@ -150,38 +214,30 @@ export class EstimatedReport implements OnInit {
   }
 
   // ─── Edit / View Modes ─────────────────────────────────────────────────────
+  private toEditableRow(l: ProjectLedger, typeId: number): LedgerRow {
+    const qtyBased = l.unit_qty != null && l.unit_cost != null;
+    return {
+      ledger_id: l.ledger_id,
+      category_id: String(l.category_id),
+      period_index: Number(l.period_index) || 1,
+      total_value: qtyBased ? null : Number(l.total_value) || 0,
+      unit_qty: qtyBased ? Number(l.unit_qty) : null,
+      unit_cost: qtyBased ? Number(l.unit_cost) : null,
+      note: l.note || '',
+      type_id: typeId
+    };
+  }
+
   startEdit(): void {
-    const today = this.getDefaultDate();
-
-    // รายรับ
     const revs = this.ledger.filter(l => Number(l.type_id) === 2);
-    if (revs.length > 0) {
-      this.revenueRows = revs.map(l => ({
-        ledger_id: l.ledger_id,
-        category_id: String(l.category_id),
-        transaction_date: l.transaction_date ? new Date(l.transaction_date).toISOString().split('T')[0] : today,
-        total_value: Number(l.total_value) || 0,
-        note: l.note || '',
-        type_id: 2
-      }));
-    } else {
-      this.revenueRows = [this.newBlankRevenueRow()];
-    }
+    this.revenueRows = revs.length > 0
+      ? revs.map(l => this.toEditableRow(l, 2))
+      : [this.newBlankRevenueRow()];
 
-    // รายจ่าย
     const exps = this.ledger.filter(l => Number(l.type_id) === 1);
-    if (exps.length > 0) {
-      this.expenseRows = exps.map(l => ({
-        ledger_id: l.ledger_id,
-        category_id: String(l.category_id),
-        transaction_date: l.transaction_date ? new Date(l.transaction_date).toISOString().split('T')[0] : today,
-        total_value: Number(l.total_value) || 0,
-        note: l.note || '',
-        type_id: 1
-      }));
-    } else {
-      this.expenseRows = [this.newBlankExpenseRow()];
-    }
+    this.expenseRows = exps.length > 0
+      ? exps.map(l => this.toEditableRow(l, 1))
+      : [this.newBlankExpenseRow()];
 
     this.mode = 'edit';
   }
@@ -198,36 +254,29 @@ export class EstimatedReport implements OnInit {
   }
 
   // ─── Add / Remove Rows ─────────────────────────────────────────────────────
-  private getDefaultDate(): string {
-    if (this.project?.created_at) {
-      return new Date(this.project.created_at).toISOString().split('T')[0];
-    }
-    return new Date().toISOString().split('T')[0];
+  private newBlankRow(typeId: number, categoryId: string): LedgerRow {
+    return {
+      category_id: categoryId,
+      period_index: 1,
+      total_value: 0,
+      unit_qty: null,
+      unit_cost: null,
+      note: '',
+      type_id: typeId
+    };
   }
 
   newBlankRevenueRow(): LedgerRow {
-    return {
-      category_id: this.revenueCategories[0]?.category_id || '',
-      transaction_date: this.getDefaultDate(),
-      total_value: 0,
-      note: '',
-      type_id: 2
-    };
+    return this.newBlankRow(2, this.revenueCategories[0]?.category_id || '');
   }
 
   newBlankExpenseRow(): LedgerRow {
-    return {
-      category_id: this.expenseCategories[0]?.category_id || '',
-      transaction_date: this.getDefaultDate(),
-      total_value: 0,
-      note: '',
-      type_id: 1
-    };
+    return this.newBlankRow(1, this.expenseCategories[0]?.category_id || '');
   }
 
   // สัดส่วน (%) ของแถวนี้เทียบกับยอดรวมฝั่งเดียวกัน — ใช้แสดงแถบเล็กใต้แต่ละแถวในโหมดแก้ไข
   rowShare(row: LedgerRow, total: number): number {
-    const v = Number(row.total_value) || 0;
+    const v = this.rowAmount(row);
     if (total <= 0 || v <= 0) return 0;
     return Math.min(100, (v / total) * 100);
   }
@@ -254,52 +303,17 @@ export class EstimatedReport implements OnInit {
     }
   }
 
-  // ─── Date Validation ───────────────────────────────────────────────────────
-  get minDate(): string {
-    if (!this.project?.created_at) return '';
-    return new Date(this.project.created_at).toISOString().split('T')[0];
-  }
-
-  get maxDate(): string {
-    if (!this.project?.created_at || !this.project?.duration_months) return '';
-    const d = new Date(this.project.created_at);
-    d.setMonth(d.getMonth() + Number(this.project.duration_months));
-    return d.toISOString().split('T')[0];
-  }
-
-  isDateValid(dateStr: string): boolean {
-    if (!this.project || !dateStr) return true;
-    const start = new Date(this.project.created_at);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + Number(this.project.duration_months));
-    end.setHours(23, 59, 59, 999);
-    const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
-    return d >= start && d <= end;
-  }
-
   // ─── Save Estimated ────────────────────────────────────────────────────────
   async saveEstimated(): Promise<void> {
     const allRows = [...this.revenueRows, ...this.expenseRows];
-    // กรองแถวที่มีการกรอกจำนวนเงิน > 0
-    const validRows = allRows.filter(r => Number(r.total_value) > 0);
+    // กรองแถวที่มีการกรอกจำนวนเงิน > 0 (หมวดแบบปริมาณคิดจาก qty × rate ให้แล้ว)
+    const validRows = allRows.filter(r => this.rowAmount(r) > 0);
 
     if (validRows.length === 0) {
       Swal.fire({
         icon: 'warning',
         title: 'ไม่มีข้อมูล',
         text: 'กรุณากรอกจำนวนเงินอย่างน้อย 1 รายการ (รายรับ หรือ รายจ่าย)',
-        confirmButtonColor: '#198754'
-      });
-      return;
-    }
-
-    const badDate = validRows.find(r => r.transaction_date && !this.isDateValid(r.transaction_date));
-    if (badDate) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'วันที่ไม่ถูกต้อง',
-        text: `วันที่ต้องอยู่ภายในระยะเวลาโครงการ ${this.project?.duration_months} เดือน (นับจากวันที่สร้างโครงการ)`,
         confirmButtonColor: '#198754'
       });
       return;
@@ -318,13 +332,7 @@ export class EstimatedReport implements OnInit {
 
     this.isSaving = true;
     const projectId = this.project!.project_id;
-    const ledgersPayload = validRows.map(r => ({
-      type_id: r.type_id,
-      category_id: r.category_id,
-      total_value: Number(r.total_value),
-      note: r.note || '',
-      transaction_date: r.transaction_date
-    }));
+    const ledgersPayload = validRows.map(r => toPayload(r, this.allCategories, this.project?.created_at));
 
     const isFirstSave = this.ledger.length === 0;
 
@@ -337,13 +345,10 @@ export class EstimatedReport implements OnInit {
         error: (err) => this.handleSaveError(err)
       });
     } else {
-      this.projectService.updateEstimatedLedgers(projectId, ledgersPayload.map(l => ({
-        type_id: l.type_id,
-        category_id: l.category_id,
-        total_value: l.total_value,
-        note: l.note,
-        transaction_date: new Date(l.transaction_date)
-      }))).subscribe({
+      this.http.put<any>(
+        `http://localhost:3000/api/projects/${projectId}/ledgers/estimated`,
+        { ledgers: ledgersPayload }
+      ).subscribe({
         next: () => this.afterSave(),
         error: (err) => this.handleSaveError(err)
       });
@@ -361,8 +366,12 @@ export class EstimatedReport implements OnInit {
     });
 
     const id = this.project!.project_id;
-    this.projectService.getLedgersByProjectId(id).subscribe(ls => {
-      this.ledger = ls.filter(l => l.phase === 'Estimated');
+    forkJoin({
+      ledger: this.projectService.getLedgersByProjectId(id),
+      analytics: this.analyticsService.getProjectAnalytics(id)
+    }).subscribe(({ ledger, analytics }) => {
+      this.ledger = ledger.filter(l => l.phase === 'Estimated');
+      this.analytics = analytics;
       this.calculateMetrics();
       this.mode = 'view';
       this.revenueRows = [];
@@ -408,22 +417,14 @@ export class EstimatedReport implements OnInit {
     });
   }
 
-  // ─── KPI Calculation (View Mode) ───────────────────────────────────────────
+  // ─── KPI (View Mode) — ใช้ตัวเลขที่ backend คำนวณให้ ไม่คำนวณซ้ำที่นี่ ─────────
   private calculateMetrics(): void {
-    this.totalEstRevenue = this.sumByType(this.ledger, 2);
-    this.totalEstExpense = this.sumByType(this.ledger, 1);
-    this.estNetProfit = this.totalEstRevenue - this.totalEstExpense;
-    this.estROI = this.totalEstExpense > 0
-      ? ((this.totalEstRevenue - this.totalEstExpense) / this.totalEstExpense) * 100 : 0;
-    const duration = Number(this.project?.duration_months || 0);
-    const monthly = duration > 0 ? this.totalEstRevenue / duration : 0;
-    this.estPaybackMonths = monthly > 0 && this.totalEstExpense > 0
-      ? this.totalEstExpense / monthly : null;
-  }
-
-  private sumByType(list: ProjectLedger[], typeId: number): number {
-    return list.filter(l => Number(l.type_id) === typeId)
-      .reduce((s, l) => s + Number(l.total_value || 0), 0);
+    const est = this.analytics?.summary.estimated;
+    this.totalEstRevenue = est?.totalRevenue ?? 0;
+    this.totalEstExpense = est?.totalExpense ?? 0;
+    this.estNetProfit = est?.netProfit ?? 0;
+    this.estROI = est?.roi ?? 0;
+    this.estPaybackMonths = est?.paybackMonth ?? null;
   }
 
   getExpenses(): ProjectLedger[] {

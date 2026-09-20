@@ -87,11 +87,36 @@
   display: none;
 }
 
+/* รูป snapshot ของกราฟ — ซ่อนไว้บนจอ โชว์เฉพาะตอนพิมพ์ */
+.chart-print-only {
+  display: none;
+}
+
 @media print {
   .btn, button, .no-print {
     display: none !important;
   }
   .print-header {
     display: block !important;
+  }
+
+  /* ตอนพิมพ์ใช้รูปแทน canvas (canvas วาดใหม่ไม่ทันตอนเปลี่ยนเป็น layout กระดาษ)
+     ซ่อนเฉพาะกล่องที่มีรูปแทนแล้วเท่านั้น */
+  .chart-screen-only.has-print-image {
+    display: none !important;
+  }
+  .chart-print-only {
+    display: block !important;
+    width: 100%;
+    height: auto;
+    max-height: 90mm; /* กันกราฟสูงจนดันเนื้อหาอื่นข้ามหน้าโดยไม่จำเป็น */
+    object-fit: contain;
+  }
+
+  /* การ์ดกราฟ 2 ใบเรียงต่อกันแนวตั้งบนกระดาษ จะได้ไม่ถูกบีบจนอ่านไม่ออก */
+  .row > [class*='col-'] {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
   }
 }

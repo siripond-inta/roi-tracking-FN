@@ -3,6 +3,8 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChang
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
+import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
+
 import { routes } from './app.routes';
 import { authInterceptor } from './interceptors/auth.interceptor';
 import { loggingInterceptor } from './interceptors/logging.interceptor';
@@ -12,6 +14,9 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
+
+    // FR05-1: ลงทะเบียน Chart.js ให้ใช้กราฟเส้น/กราฟแท่งได้ทั้งแอป
+    provideCharts(withDefaultRegisterables()),
 
     // ใช้ XHR mode (ไม่ใช้ withFetch) เพื่อให้ Zone.js trigger Change Detection อัตโนมัติ
     // withFetch() ทำให้ response callback ทำงานนอก Zone → ต้องคลิกก่อนข้อมูลถึงขึ้น

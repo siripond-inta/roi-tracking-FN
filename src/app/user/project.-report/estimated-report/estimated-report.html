@@ -144,23 +144,75 @@
             <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">ระยะคืนทุน</small>
           </div>
           <div class="fw-bold text-dark" style="font-size:1.3rem">
-            <span *ngIf="displayedPayback !== null">{{ displayedPayback | number:'1.1-1' }} เดือน</span>
-            <span *ngIf="displayedPayback === null" class="text-muted">-</span>
+            <span *ngIf="displayedPayback !== null">เดือนที่ {{ displayedPayback }}</span>
+            <span *ngIf="displayedPayback === null" class="text-muted">ยังไม่คืนทุน</span>
           </div>
-          <small class="text-muted">เดือนถึงคืนทุน</small>
+          <small class="text-muted">เดือนแรกที่เงินสดสะสม ≥ เงินลงทุน</small>
         </div>
       </div>
 
-      <!-- 6. ระยะเวลา -->
+      <!-- 6. สถานะความคุ้มค่า — เทียบ ROI กับเป้าหมายที่ตั้งไว้ตอนสร้างโครงการ -->
       <div class="col-6 col-md-4 col-xl-2">
         <div class="card border-0 h-100 shadow-sm rounded-4 p-3">
           <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="kpi-icon kpi-icon-neutral"><i class="bi bi-calendar3"></i></span>
-            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">ระยะเวลา</small>
+            <span class="kpi-icon" [ngClass]="isWorthwhile === null ? 'kpi-icon-neutral' : (isWorthwhile ? 'kpi-icon-success' : 'kpi-icon-danger')">
+              <i class="bi bi-bullseye"></i>
+            </span>
+            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">ความคุ้มค่า</small>
           </div>
-          <div class="fw-bold text-dark" style="font-size:1.3rem">{{ project.duration_months }} เดือน</div>
-          <small class="text-muted">ระยะเวลาโครงการ</small>
+          <div class="fw-bold" style="font-size:1.3rem"
+            [ngClass]="isWorthwhile === null ? 'text-muted' : (isWorthwhile ? 'text-success' : 'text-danger')">
+            <span *ngIf="isWorthwhile === null">ยังไม่ตั้งเป้า</span>
+            <span *ngIf="isWorthwhile === true">คุ้มค่า</span>
+            <span *ngIf="isWorthwhile === false">ไม่คุ้มค่า</span>
+          </div>
+          <small class="text-muted" *ngIf="targetRoi !== null">เป้าหมาย ROI {{ targetRoi }}%</small>
+          <small class="text-muted" *ngIf="targetRoi === null">ตั้งเป้าหมาย ROI ได้ที่หน้าแก้ไขโครงการ</small>
         </div>
+      </div>
+    </div>
+
+    <!-- ─── FR04-1 / FR05-2: กระแสเงินสดรายเดือน + ยอดสะสม (โหมดดูผล) ──────────── -->
+    <div *ngIf="mode === 'view' && analytics" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+      <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h6 class="fw-bold mb-0">
+          <i class="bi bi-cash-coin me-2 text-success"></i>กระแสเงินสดรายเดือน (Net Cash Flow)
+        </h6>
+        <small class="text-muted">
+          เงินลงทุนเริ่มต้น ฿{{ analytics.project.initial_budget | number }}
+          <span *ngIf="estPaybackMonths !== null"> · คืนทุนเดือนที่ {{ estPaybackMonths }}</span>
+        </small>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 text-nowrap">
+          <thead class="table-light text-muted small">
+            <tr>
+              <th class="ps-4">เดือนที่</th>
+              <th class="text-end">รายรับ</th>
+              <th class="text-end">รายจ่าย</th>
+              <th class="text-end">NCF</th>
+              <th class="text-end pe-4">กระแสเงินสดสะสม</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of analytics.monthly"
+              [class.table-success]="estPaybackMonths === m.period">
+              <td class="ps-4 fw-bold">
+                {{ m.period }}
+                <i *ngIf="estPaybackMonths === m.period" class="bi bi-flag-fill text-success ms-1"
+                  title="เดือนที่คืนทุน"></i>
+              </td>
+              <td class="text-end text-success">฿{{ m.estimated.revenue | number }}</td>
+              <td class="text-end text-danger">฿{{ m.estimated.expense | number }}</td>
+              <td class="text-end fw-bold" [ngClass]="m.estimated.ncf >= 0 ? 'text-success' : 'text-danger'">
+                ฿{{ m.estimated.ncf | number }}
+              </td>
+              <td class="text-end fw-bold pe-4" [ngClass]="m.estimated.cumulative >= 0 ? 'text-dark' : 'text-danger'">
+                ฿{{ m.estimated.cumulative | number }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -189,24 +241,46 @@
 
                   <div class="ledger-row-field-category">
                     <label class="form-label small text-muted mb-1">หมวดหมู่</label>
-                    <select class="form-select form-select-sm rounded-3 bg-light border-1" [(ngModel)]="row.category_id">
+                    <select class="form-select form-select-sm rounded-3 bg-light border-1"
+                      [(ngModel)]="row.category_id" (ngModelChange)="onCategoryChange(row)">
                       <option *ngFor="let c of revenueCategories" [value]="c.category_id">{{ c.category_name }}</option>
                     </select>
                   </div>
 
+                  <!-- FR03-2: เลือกงวด/เดือนแทนการกรอกวันที่เอง — วันที่คิดจากเดือนเริ่มโครงการให้อัตโนมัติ -->
                   <div class="ledger-row-field-date">
-                    <label class="form-label small text-muted mb-1">วันที่</label>
-                    <input type="date" class="form-control form-control-sm rounded-3 bg-light border-1"
-                      [(ngModel)]="row.transaction_date"
-                      [min]="minDate" [max]="maxDate"
-                      [class.border-danger]="row.transaction_date && !isDateValid(row.transaction_date)">
+                    <label class="form-label small text-muted mb-1">เดือนที่</label>
+                    <select class="form-select form-select-sm rounded-3 bg-light border-1" [(ngModel)]="row.period_index">
+                      <option *ngFor="let p of periods" [ngValue]="p">เดือนที่ {{ p }}</option>
+                    </select>
                   </div>
 
-                  <div class="ledger-row-field-amount">
+                  <!-- หมวดปกติ: กรอกยอดเงินตรงๆ -->
+                  <div class="ledger-row-field-amount" *ngIf="!isQtyRow(row)">
                     <label class="form-label small text-muted mb-1">จำนวน (฿)</label>
                     <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold text-success"
                       [(ngModel)]="row.total_value" placeholder="0" min="0">
                   </div>
+
+                  <!-- FR03-4: หมวดประโยชน์ทางอ้อม กรอกปริมาณ × อัตรา แล้วระบบคูณให้ -->
+                  <ng-container *ngIf="isQtyRow(row)">
+                    <div class="ledger-row-field-amount">
+                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.unit_label }}</label>
+                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
+                        [(ngModel)]="row.unit_qty" placeholder="0" min="0">
+                    </div>
+                    <div class="ledger-row-field-amount">
+                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.rate_label }}</label>
+                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
+                        [(ngModel)]="row.unit_cost" placeholder="0" min="0">
+                    </div>
+                    <div class="ledger-row-field-amount">
+                      <label class="form-label small text-muted mb-1">มูลค่าที่ตีได้ (฿)</label>
+                      <div class="form-control form-control-sm rounded-3 border-1 text-end fw-bold text-success bg-success bg-opacity-10">
+                        ฿{{ rowAmount(row) | number }}
+                      </div>
+                    </div>
+                  </ng-container>
 
                   <div class="ledger-row-note">
                     <label class="form-label small text-muted mb-1">หมายเหตุ</label>
@@ -221,7 +295,7 @@
                 </div>
 
                 <!-- แถบสัดส่วนของแถวนี้เทียบกับยอดรวมรายรับ -->
-                <div class="ledger-share-track mt-2" *ngIf="liveRevenue > 0 && row.total_value">
+                <div class="ledger-share-track mt-2" *ngIf="liveRevenue > 0 && rowAmount(row) > 0">
                   <div class="ledger-share-fill bg-revenue" [style.width.%]="rowShare(row, liveRevenue)"></div>
                 </div>
               </div>
@@ -250,15 +324,21 @@
                 <thead class="table-light text-muted small">
                   <tr>
                     <th class="ps-4">หมวดหมู่</th>
-                    <th>วันที่</th>
+                    <th>เดือนที่</th>
                     <th>หมายเหตุ</th>
                     <th class="text-end pe-4">จำนวนเงิน (฿)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let item of getRevenues()">
-                    <td class="ps-4 fw-bold">{{ getCategoryName(item.category_id) }}</td>
-                    <td class="text-muted small">{{ item.transaction_date | date:'dd/MM/yyyy' }}</td>
+                    <td class="ps-4 fw-bold">
+                      {{ getCategoryName(item.category_id) }}
+                      <!-- FR03-4: หมวดประโยชน์ทางอ้อม โชว์ที่มาของตัวเลข (ปริมาณ × อัตรา) -->
+                      <small class="text-muted d-block fw-normal" *ngIf="item.unit_qty != null">
+                        {{ item.unit_qty | number }} × ฿{{ item.unit_cost | number }}
+                      </small>
+                    </td>
+                    <td class="text-muted small">เดือนที่ {{ item.period_index }}</td>
                     <td class="text-muted">{{ item.note || '-' }}</td>
                     <td class="text-end fw-bold text-success pe-4">฿{{ item.total_value | number }}</td>
                   </tr>
@@ -299,24 +379,44 @@
 
                   <div class="ledger-row-field-category">
                     <label class="form-label small text-muted mb-1">หมวดหมู่</label>
-                    <select class="form-select form-select-sm rounded-3 bg-light border-1" [(ngModel)]="row.category_id">
+                    <select class="form-select form-select-sm rounded-3 bg-light border-1"
+                      [(ngModel)]="row.category_id" (ngModelChange)="onCategoryChange(row)">
                       <option *ngFor="let c of expenseCategories" [value]="c.category_id">{{ c.category_name }}</option>
                     </select>
                   </div>
 
+                  <!-- FR03-2: เลือกงวด/เดือนแทนการกรอกวันที่เอง -->
                   <div class="ledger-row-field-date">
-                    <label class="form-label small text-muted mb-1">วันที่</label>
-                    <input type="date" class="form-control form-control-sm rounded-3 bg-light border-1"
-                      [(ngModel)]="row.transaction_date"
-                      [min]="minDate" [max]="maxDate"
-                      [class.border-danger]="row.transaction_date && !isDateValid(row.transaction_date)">
+                    <label class="form-label small text-muted mb-1">เดือนที่</label>
+                    <select class="form-select form-select-sm rounded-3 bg-light border-1" [(ngModel)]="row.period_index">
+                      <option *ngFor="let p of periods" [ngValue]="p">เดือนที่ {{ p }}</option>
+                    </select>
                   </div>
 
-                  <div class="ledger-row-field-amount">
+                  <div class="ledger-row-field-amount" *ngIf="!isQtyRow(row)">
                     <label class="form-label small text-muted mb-1">จำนวน (฿)</label>
                     <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold text-danger"
                       [(ngModel)]="row.total_value" placeholder="0" min="0">
                   </div>
+
+                  <ng-container *ngIf="isQtyRow(row)">
+                    <div class="ledger-row-field-amount">
+                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.unit_label }}</label>
+                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
+                        [(ngModel)]="row.unit_qty" placeholder="0" min="0">
+                    </div>
+                    <div class="ledger-row-field-amount">
+                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.rate_label }}</label>
+                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
+                        [(ngModel)]="row.unit_cost" placeholder="0" min="0">
+                    </div>
+                    <div class="ledger-row-field-amount">
+                      <label class="form-label small text-muted mb-1">มูลค่าที่ตีได้ (฿)</label>
+                      <div class="form-control form-control-sm rounded-3 border-1 text-end fw-bold text-danger bg-danger bg-opacity-10">
+                        ฿{{ rowAmount(row) | number }}
+                      </div>
+                    </div>
+                  </ng-container>
 
                   <div class="ledger-row-note">
                     <label class="form-label small text-muted mb-1">หมายเหตุ</label>
@@ -331,7 +431,7 @@
                 </div>
 
                 <!-- แถบสัดส่วนของแถวนี้เทียบกับยอดรวมรายจ่าย -->
-                <div class="ledger-share-track mt-2" *ngIf="liveExpense > 0 && row.total_value">
+                <div class="ledger-share-track mt-2" *ngIf="liveExpense > 0 && rowAmount(row) > 0">
                   <div class="ledger-share-fill bg-expense" [style.width.%]="rowShare(row, liveExpense)"></div>
                 </div>
               </div>
@@ -360,15 +460,20 @@
                 <thead class="table-light text-muted small">
                   <tr>
                     <th class="ps-4">หมวดหมู่</th>
-                    <th>วันที่</th>
+                    <th>เดือนที่</th>
                     <th>หมายเหตุ</th>
                     <th class="text-end pe-4">จำนวนเงิน (฿)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let item of getExpenses()">
-                    <td class="ps-4 fw-bold">{{ getCategoryName(item.category_id) }}</td>
-                    <td class="text-muted small">{{ item.transaction_date | date:'dd/MM/yyyy' }}</td>
+                    <td class="ps-4 fw-bold">
+                      {{ getCategoryName(item.category_id) }}
+                      <small class="text-muted d-block fw-normal" *ngIf="item.unit_qty != null">
+                        {{ item.unit_qty | number }} × ฿{{ item.unit_cost | number }}
+                      </small>
+                    </td>
+                    <td class="text-muted small">เดือนที่ {{ item.period_index }}</td>
                     <td class="text-muted">{{ item.note || '-' }}</td>
                     <td class="text-end fw-bold text-danger pe-4">฿{{ item.total_value | number }}</td>
                   </tr>
