@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, AdminUser, AdminProject } from '../../services/admin.service';
 import { CategoryService, Category, EntryType } from '../../services/category.service';
+import { ProjectTypeService, ProjectType } from '../../services/project-type.service';
 import { ToastService } from '../../services/toast.service';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
@@ -12,6 +13,16 @@ interface CategoryFormModel {
   category_name: string;
   type_id: number | null;
   category_group: '' | 'INV' | 'OPC' | 'ADC' | 'BEN';
+  // FR03-4: หมวดที่คิดจาก "ปริมาณ × อัตรา" ต้องระบุชื่อหน่วยทั้งคู่ (เว้นว่าง = กรอกยอดเงินตรงๆ)
+  unit_label: string;
+  rate_label: string;
+}
+
+interface ProjectTypeFormModel {
+  type_id: number | null; // null = เพิ่มใหม่
+  type_name: string;
+  description: string;
+  calculation_method: '' | 'REVENUE' | 'COST_SAVING' | 'MIXED';
 }
 
 @Component({
@@ -25,9 +36,10 @@ export class UserManagement implements OnInit {
   projects: AdminProject[] = [];
   categories: Category[] = [];
   entryTypes: EntryType[] = [];
+  projectTypes: ProjectType[] = [];
   isLoading = false;
 
-  activeTab: 'users' | 'projects' | 'categories' = 'users';
+  activeTab: 'users' | 'projects' | 'categories' | 'project-types' = 'users';
   userSearchTerm = '';
   projectSearchTerm = '';
   categorySearchTerm = '';
@@ -35,8 +47,21 @@ export class UserManagement implements OnInit {
   // ─── Category Form (add/edit ใช้ modal ฟอร์มเดียวกัน) ───────────────────────
   showCategoryForm = false;
   categoryFormMode: 'create' | 'edit' = 'create';
-  categoryForm: CategoryFormModel = { category_id: '', category_name: '', type_id: null, category_group: '' };
+  categoryForm: CategoryFormModel = {
+    category_id: '', category_name: '', type_id: null, category_group: '', unit_label: '', rate_label: ''
+  };
   isSavingCategory = false;
+
+  // ─── Project Type Form (FR07-4) ─────────────────────────────────────────────
+  showProjectTypeForm = false;
+  projectTypeForm: ProjectTypeFormModel = { type_id: null, type_name: '', description: '', calculation_method: '' };
+  isSavingProjectType = false;
+
+  readonly calculationMethods: { value: 'REVENUE' | 'COST_SAVING' | 'MIXED'; label: string }[] = [
+    { value: 'REVENUE', label: 'REVENUE — เน้นสร้างรายได้' },
+    { value: 'COST_SAVING', label: 'COST_SAVING — เน้นลดต้นทุน' },
+    { value: 'MIXED', label: 'MIXED — ทั้งเพิ่มรายได้และลดต้นทุน' },
+  ];
 
   readonly categoryGroups: { value: 'INV' | 'OPC' | 'ADC' | 'BEN'; label: string }[] = [
     { value: 'INV', label: 'INV — Investment / ลงทุน' },
@@ -48,6 +73,7 @@ export class UserManagement implements OnInit {
   constructor(
     private adminService: AdminService,
     private categoryService: CategoryService,
+    private projectTypeService: ProjectTypeService,
     private toastService: ToastService
   ) {}
 
@@ -62,12 +88,14 @@ export class UserManagement implements OnInit {
       projects: this.adminService.getProjects(),
       categories: this.categoryService.getCategories(),
       entryTypes: this.categoryService.getEntryTypes(),
+      projectTypes: this.projectTypeService.getProjectTypes(),
     }).subscribe({
-      next: ({ users, projects, categories, entryTypes }) => {
+      next: ({ users, projects, categories, entryTypes, projectTypes }) => {
         this.users = users;
         this.projects = projects;
         this.categories = categories;
         this.entryTypes = entryTypes;
+        this.projectTypes = projectTypes;
         this.isLoading = false;
       },
       error: (err) => {
@@ -160,7 +188,14 @@ export class UserManagement implements OnInit {
   // ─── Category CRUD ───────────────────────────────────────────────────────
   openCreateCategory(): void {
     this.categoryFormMode = 'create';
-    this.categoryForm = { category_id: '', category_name: '', type_id: this.entryTypes[0]?.type_id ?? null, category_group: '' };
+    this.categoryForm = {
+      category_id: '',
+      category_name: '',
+      type_id: this.entryTypes[0]?.type_id ?? null,
+      category_group: '',
+      unit_label: '',
+      rate_label: ''
+    };
     this.showCategoryForm = true;
   }
 
@@ -170,7 +205,9 @@ export class UserManagement implements OnInit {
       category_id: cat.category_id,
       category_name: cat.category_name,
       type_id: cat.type_id,
-      category_group: cat.category_group
+      category_group: cat.category_group,
+      unit_label: cat.unit_label || '',
+      rate_label: cat.rate_label || ''
     };
     this.showCategoryForm = true;
   }
@@ -185,15 +222,24 @@ export class UserManagement implements OnInit {
       this.toastService.warning('กรุณากรอกข้อมูลให้ครบทุกช่อง');
       return;
     }
+    // FR03-4: ถ้าจะให้หมวดนี้คิดแบบ ปริมาณ × อัตรา ต้องตั้งชื่อหน่วยทั้งสองช่อง
+    const hasUnit = !!f.unit_label.trim();
+    const hasRate = !!f.rate_label.trim();
+    if (hasUnit !== hasRate) {
+      this.toastService.warning('หมวดหมู่แบบคำนวณจากปริมาณ ต้องระบุทั้งชื่อหน่วยปริมาณและชื่ออัตราต่อหน่วย');
+      return;
+    }
 
     this.isSavingCategory = true;
 
     if (this.categoryFormMode === 'create') {
-      // category_id ไม่ต้องส่ง — backend สร้างรหัสให้อัตโนมัติตามประเภทที่เลือก
+      // category_id ไม่ต้องส่ง — backend สร้างรหัสให้อัตโนมัติตามกลุ่มค่าใช้จ่าย
       this.categoryService.createCategory({
         category_name: f.category_name.trim(),
         type_id: f.type_id,
-        category_group: f.category_group
+        category_group: f.category_group,
+        unit_label: hasUnit ? f.unit_label.trim() : null,
+        rate_label: hasRate ? f.rate_label.trim() : null
       }).subscribe({
         next: () => {
           this.toastService.success('เพิ่มหมวดหมู่ใหม่เรียบร้อยแล้ว');
@@ -210,7 +256,9 @@ export class UserManagement implements OnInit {
       this.categoryService.updateCategory(f.category_id, {
         category_name: f.category_name.trim(),
         type_id: f.type_id,
-        category_group: f.category_group
+        category_group: f.category_group,
+        unit_label: hasUnit ? f.unit_label.trim() : null,
+        rate_label: hasRate ? f.rate_label.trim() : null
       }).subscribe({
         next: () => {
           this.toastService.success('บันทึกการแก้ไขหมวดหมู่เรียบร้อยแล้ว');
@@ -246,6 +294,82 @@ export class UserManagement implements OnInit {
       error: (err) => {
         console.error('Error deleting category:', err);
         this.toastService.error(err.error?.message || 'ลบไม่สำเร็จ — อาจมีรายการที่ใช้หมวดหมู่นี้อยู่');
+      }
+    });
+  }
+
+  // ─── Project Type CRUD (FR07-4) ──────────────────────────────────────────
+  openCreateProjectType(): void {
+    this.projectTypeForm = { type_id: null, type_name: '', description: '', calculation_method: '' };
+    this.showProjectTypeForm = true;
+  }
+
+  openEditProjectType(type: ProjectType): void {
+    this.projectTypeForm = {
+      type_id: type.type_id,
+      type_name: type.type_name,
+      description: type.description || '',
+      calculation_method: type.calculation_method || ''
+    };
+    this.showProjectTypeForm = true;
+  }
+
+  closeProjectTypeForm(): void {
+    this.showProjectTypeForm = false;
+  }
+
+  saveProjectType(): void {
+    const f = this.projectTypeForm;
+    if (!f.type_name.trim()) {
+      this.toastService.warning('กรุณากรอกชื่อประเภทโครงการ');
+      return;
+    }
+
+    this.isSavingProjectType = true;
+    const payload = {
+      type_name: f.type_name.trim(),
+      description: f.description.trim() || null,
+      calculation_method: f.calculation_method || null
+    };
+
+    const request$ = f.type_id == null
+      ? this.projectTypeService.createProjectType(payload)
+      : this.projectTypeService.updateProjectType(f.type_id, payload);
+
+    request$.subscribe({
+      next: () => {
+        this.toastService.success(f.type_id == null ? 'เพิ่มประเภทโครงการเรียบร้อยแล้ว' : 'บันทึกการแก้ไขเรียบร้อยแล้ว');
+        this.isSavingProjectType = false;
+        this.showProjectTypeForm = false;
+        this.loadAll();
+      },
+      error: (err) => {
+        this.isSavingProjectType = false;
+        this.toastService.error(err.error?.message || 'บันทึกไม่สำเร็จ');
+      }
+    });
+  }
+
+  async deleteProjectType(type: ProjectType): Promise<void> {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: `ลบประเภทโครงการ "${type.type_name}"?`,
+      text: 'หากมีโครงการที่ใช้ประเภทนี้อยู่ ระบบจะไม่อนุญาตให้ลบ',
+      showCancelButton: true,
+      confirmButtonText: 'ลบ',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#dc3545'
+    });
+    if (!result.isConfirmed) return;
+
+    this.projectTypeService.deleteProjectType(type.type_id).subscribe({
+      next: () => {
+        this.toastService.success(`ลบประเภทโครงการ "${type.type_name}" แล้ว`);
+        this.loadAll();
+      },
+      error: (err) => {
+        console.error('Error deleting project type:', err);
+        this.toastService.error(err.error?.message || 'ลบไม่สำเร็จ — อาจมีโครงการที่ใช้ประเภทนี้อยู่');
       }
     });
   }
