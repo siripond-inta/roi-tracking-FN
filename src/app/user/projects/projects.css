@@ -1,0 +1,43 @@
+
+/* ─── Modal แก้ไขโครงการ (FR02-2) — คุมด้วย *ngIf ไม่พึ่ง Bootstrap JS ────────── */
+.project-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 20, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 1rem;
+}
+
+.project-edit-panel {
+  background: #fff;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* หัวคอลัมน์ที่คลิกเรียงลำดับได้ */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.sortable:hover {
+  color: #198754;
+}
+
+/* ปุ่มแบ่งหน้า ให้เข้าธีมเขียวของเว็บ */
+.pagination .page-link {
+  color: #198754;
+  border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: #198754;
+  border-color: #198754;
+  color: #fff;
+}

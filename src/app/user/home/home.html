@@ -7,7 +7,7 @@
             <div class="col-md-4">
                 <div class="d-flex align-items-center border rounded-pill bg-light px-3" style="height: 48px;">
                     <i class="bi bi-search text-secondary"></i>
-                    <input type="text" [(ngModel)]="searchTerm"
+                    <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()"
                         class="form-control border-0 bg-transparent shadow-none ms-2"
                         placeholder="Search projects...">
                 </div>
@@ -15,7 +15,9 @@
             <div class="col"></div>
             <div class="col-auto d-flex gap-2">
                 
-                <button class="btn btn-add-project shadow-sm bg-success text-white border-0 px-4 rounded-pill fw-bold"
+                <!-- บัญชี viewer ดูได้อย่างเดียว ไม่ต้องโชว์ปุ่มที่กดแล้วจะโดนปฏิเสธ (FR01-2) -->
+                <button *ngIf="authService.canEditProjects()"
+                    class="btn btn-add-project shadow-sm bg-success text-white border-0 px-4 rounded-pill fw-bold"
                     routerLink="/user/estimated-form1" style="height: 48px;">
                     + Add New Project
                 </button>
@@ -94,9 +96,40 @@
             </div>
         </div>
 
+        <!-- ─── FR05-1: กราฟแท่งเปรียบเทียบรายโครงการ ─────────────────────────────
+             มีตัวเลือกตัวชี้วัดและจำนวนอันดับที่แสดง เพื่อให้ใช้ได้เมื่อโครงการเยอะขึ้น -->
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" *ngIf="projects.length > 0">
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h6 class="fw-bold mb-0">
+                        <i class="bi bi-bar-chart-fill me-2 text-success"></i>เปรียบเทียบรายโครงการ
+                    </h6>
+                    <small class="text-muted">
+                        เรียงจากมากไปน้อย · แสดง {{ chartTopN }} อันดับแรกจาก {{ projects.length }} โครงการ
+                    </small>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <select class="form-select form-select-sm rounded-pill w-auto" [(ngModel)]="chartMetric">
+                        <option value="benefit">ผลประโยชน์ vs ต้นทุน</option>
+                        <option value="roi">ROI (%)</option>
+                    </select>
+                    <select class="form-select form-select-sm rounded-pill w-auto" [(ngModel)]="chartTopN">
+                        <option *ngFor="let n of topNOptions" [ngValue]="n">{{ n }} อันดับแรก</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-3">
+                <!-- ความสูงปรับตามจำนวนแท่ง และสลับเป็นแนวนอนเมื่อรายการเยอะ (ดู home.ts) -->
+                <div [style.height.px]="chartHeightPx">
+                    <canvas baseChart type="bar" [data]="benefitByProjectChartData"
+                        [options]="benefitByProjectChartOptions"></canvas>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-4">
-            <!-- เปลี่ยนจาก projects เป็น filteredProjects — getter สร้าง array ใหม่ทุกครั้งที่ searchTerm เปลี่ยน -->
-            <div class="col-12 col-md-6 col-lg-4" *ngFor="let prj of filteredProjects">
+            <!-- visibleProjects = ผลการค้นหา แต่โหลดทีละชุด (ดู showMoreProjects ใน home.ts) -->
+            <div class="col-12 col-md-6 col-lg-4" *ngFor="let prj of visibleProjects">
 
                 <div class="card project-card border-0 p-4 shadow-sm h-100 rounded-4" role="button"
                     (click)="goToProject(prj)" style="cursor:pointer;">
@@ -139,12 +172,13 @@
 
                     <div class="d-flex justify-content-between align-items-center mt-3 pt-3">
                         <small class="text-muted">Updated {{ prj.created_at | date:'shortDate' }}</small>
-                        <!-- แก้ไข: ส่ง project_id ไปด้วย queryParams เพื่อให้ actual-form1 รู้ว่าจะ record โปรเจกต์ไหน -->
-                        <button [routerLink]="['/user/actual-form1']"
-                                [queryParams]="{ projectId: prj.project_id }"
+                        <!-- บันทึกผลจริงที่หน้ารายงาน Actual โดยตรง — ที่นั่นกรอกแยกรายเดือนได้ (FR03-2)
+                             และรองรับการตีมูลค่าประโยชน์ทางอ้อมแบบ ปริมาณ × อัตรา (FR03-4) -->
+                        <button [routerLink]="['/user/actual-report', prj.project_id]"
+                                [queryParams]="{ mode: 'create' }"
                                 (click)="$event.stopPropagation()"
                                 class="btn btn-outline-success btn-sm rounded-pill px-3"
-                                *ngIf="prj.status !== 'Actual'">
+                                *ngIf="prj.status !== 'Actual' && authService.canEditProjects()">
                             Record Actual
                         </button>
                         <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2"
@@ -155,6 +189,19 @@
                 </div>
 
             </div>
+        </div>
+
+        <!-- โหลดการ์ดเพิ่มทีละชุด แทนการ render ทุกโครงการพร้อมกัน -->
+        <div class="text-center mt-4" *ngIf="hasMoreProjects">
+            <button class="btn btn-outline-success rounded-pill px-4 fw-bold" (click)="showMoreProjects()">
+                <i class="bi bi-arrow-down-circle me-2"></i>
+                แสดงเพิ่ม ({{ filteredProjects.length - visibleCardCount }} โครงการที่เหลือ)
+            </button>
+        </div>
+        <div class="text-center mt-3" *ngIf="filteredProjects.length > 0">
+            <small class="text-muted">
+                แสดง {{ visibleProjects.length }} จาก {{ filteredProjects.length }} โครงการ
+            </small>
         </div>
     </div>
 </div>
