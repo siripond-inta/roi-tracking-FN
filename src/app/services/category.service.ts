@@ -13,6 +13,9 @@ export interface Category {
   category_group: 'INV' | 'OPC' | 'ADC' | 'BEN';
   type_name: string;
   is_inflow: boolean; // true = รายรับ, false = รายจ่าย
+  // FR03-4: หมวดที่ตีมูลค่าจาก "ปริมาณ × อัตรา" จะมีชื่อหน่วยทั้งคู่ (null = กรอกยอดเงินตรงๆ)
+  unit_label: string | null;
+  rate_label: string | null;
 }
 
 export interface EntryType {
@@ -44,12 +47,28 @@ export class CategoryService {
     );
   }
 
-  // category_id ไม่ต้องส่งมาแล้ว — backend สร้างรหัสให้อัตโนมัติ (REVxxx/CATxxx ตามประเภท)
-  createCategory(category: { category_name: string; type_id: number; category_group: string }): Observable<any> {
+  // category_id ไม่ต้องส่งมาแล้ว — backend สร้างรหัสให้อัตโนมัติตามกลุ่มค่าใช้จ่าย
+  // (INVxxx/OPCxxx/ADCxxx/BENxxx ตาม FR03-3)
+  createCategory(category: {
+    category_name: string;
+    type_id: number;
+    category_group: string;
+    unit_label?: string | null;
+    rate_label?: string | null;
+  }): Observable<any> {
     return this.http.post(this.API_URL, category);
   }
 
-  updateCategory(id: string, category: { category_name?: string; type_id?: number; category_group?: string }): Observable<any> {
+  updateCategory(
+    id: string,
+    category: {
+      category_name?: string;
+      type_id?: number;
+      category_group?: string;
+      unit_label?: string | null;
+      rate_label?: string | null;
+    }
+  ): Observable<any> {
     return this.http.put(`${this.API_URL}/${id}`, category);
   }
 

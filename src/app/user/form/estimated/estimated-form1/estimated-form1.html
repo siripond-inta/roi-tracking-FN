@@ -33,24 +33,15 @@
       </div>
 
       <div class="row mb-4">
-        <!-- ประเภทโปรเจกต์ -->
+        <!-- ประเภทโปรเจกต์ — ลิสต์มาจาก database (admin เพิ่ม/แก้ได้จากหน้า Admin) -->
         <div class="col-md-6 mb-3 mb-md-0">
-          <label class="form-label fw-semibold text-dark">ประเภทโปรเจกต์</label>
+          <label class="form-label fw-semibold text-dark">ประเภทโปรเจกต์ <span class="text-danger">*</span></label>
           <select class="form-select form-select-lg rounded-3 border-1"
             style="background:#f8f9fa;"
             name="projectType" [(ngModel)]="newProjectData.project_type_id">
-            <option [ngValue]="1">โปรเจกต์รายได้</option>
-            <option [ngValue]="2">โปรเจกต์ลดต้นทุน</option>
-            <option [ngValue]="3">โปรเจกต์ตามข้อบังคับ</option>
-            <option [ngValue]="4">อื่นๆ (ระบุเอง)</option>
+            <option [ngValue]="null" disabled>เลือกประเภทโครงการ...</option>
+            <option *ngFor="let t of projectTypes" [ngValue]="t.type_id">{{ t.type_name }}</option>
           </select>
-          <!-- input สำหรับ "อื่นๆ" -->
-          <div *ngIf="isOtherType" class="mt-2">
-            <input type="text" name="customType" [(ngModel)]="newProjectData.custom_project_type"
-              class="form-control rounded-3 border-1"
-              style="background:#f8f9fa;"
-              placeholder="ระบุประเภทโปรเจกต์">
-          </div>
         </div>
 
         <!-- ระยะเวลา -->
@@ -63,18 +54,36 @@
         </div>
       </div>
 
-      <!-- งบลงทุนเริ่มต้น -->
-      <div class="mb-2">
-        <label class="form-label fw-semibold text-dark">งบลงทุนเริ่มต้น (บาท) <span class="text-danger">*</span></label>
-        <div class="input-group input-group-lg">
-          <span class="input-group-text rounded-start-3 border-end-0" style="background:#f8f9fa; border-color:#dee2e6;">
-            <i class="bi bi-currency-exchange text-muted"></i>
-            <span class="ms-1 text-muted small fw-semibold">THB</span>
-          </span>
-          <input type="number" name="budget" [(ngModel)]="newProjectData.initial_budget"
-            class="form-control rounded-end-3 border-start-0 text-end fw-bold"
-            style="background:#f8f9fa; border-color:#dee2e6;"
-            placeholder="0" min="0" step="1">
+      <div class="row mb-2">
+        <!-- งบลงทุนเริ่มต้น -->
+        <div class="col-md-6 mb-3 mb-md-0">
+          <label class="form-label fw-semibold text-dark">งบลงทุนเริ่มต้น (บาท) <span class="text-danger">*</span></label>
+          <div class="input-group input-group-lg">
+            <span class="input-group-text rounded-start-3 border-end-0" style="background:#f8f9fa; border-color:#dee2e6;">
+              <i class="bi bi-currency-exchange text-muted"></i>
+              <span class="ms-1 text-muted small fw-semibold">THB</span>
+            </span>
+            <input type="number" name="budget" [(ngModel)]="newProjectData.initial_budget"
+              class="form-control rounded-end-3 border-start-0 text-end fw-bold"
+              style="background:#f8f9fa; border-color:#dee2e6;"
+              placeholder="0" min="0" step="1">
+          </div>
+        </div>
+
+        <!-- เป้าหมาย ROI — ใช้ตัดสินสถานะ "คุ้มค่า / ไม่คุ้มค่า" ในรายงาน -->
+        <div class="col-md-6">
+          <label class="form-label fw-semibold text-dark">เป้าหมาย ROI (%)</label>
+          <div class="input-group input-group-lg">
+            <span class="input-group-text rounded-start-3 border-end-0" style="background:#f8f9fa; border-color:#dee2e6;">
+              <i class="bi bi-bullseye text-muted"></i>
+            </span>
+            <input type="number" name="targetRoi" [(ngModel)]="newProjectData.target_roi_percent"
+              class="form-control border-start-0 text-end fw-bold"
+              style="background:#f8f9fa; border-color:#dee2e6;"
+              placeholder="เช่น 20" min="0" step="0.01">
+            <span class="input-group-text rounded-end-3" style="background:#f8f9fa; border-color:#dee2e6;">%</span>
+          </div>
+          <small class="text-muted">ใช้เปรียบเทียบกับ ROI ที่คำนวณได้ เพื่อสรุปว่าโครงการคุ้มค่าหรือไม่</small>
         </div>
       </div>
     </form>
