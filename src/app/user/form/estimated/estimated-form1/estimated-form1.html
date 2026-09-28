@@ -42,6 +42,19 @@
             <option [ngValue]="null" disabled>เลือกประเภทโครงการ...</option>
             <option *ngFor="let t of projectTypes" [ngValue]="t.type_id">{{ t.type_name }}</option>
           </select>
+          <!-- ประเภทโครงการเป็นตัวกำหนดว่าจะนับผลประโยชน์แบบไหนในการคำนวณ ROI -->
+          <div *ngIf="selectedType" class="small mt-2 p-2 rounded-3 bg-light border">
+            <div class="text-muted" *ngIf="selectedType.description">{{ selectedType.description }}</div>
+            <div class="mt-1">
+              นับในการคำนวณ ROI:
+              <span class="me-2" [ngClass]="counts.direct ? 'text-success fw-semibold' : 'text-muted text-decoration-line-through'">
+                <i class="bi" [ngClass]="counts.direct ? 'bi-check-circle-fill' : 'bi-x-circle'"></i> รายได้โดยตรง
+              </span>
+              <span [ngClass]="counts.indirect ? 'text-success fw-semibold' : 'text-muted text-decoration-line-through'">
+                <i class="bi" [ngClass]="counts.indirect ? 'bi-check-circle-fill' : 'bi-x-circle'"></i> ผลประโยชน์ทางอ้อม
+              </span>
+            </div>
+          </div>
         </div>
 
         <!-- ระยะเวลา -->

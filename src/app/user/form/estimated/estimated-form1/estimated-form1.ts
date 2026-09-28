@@ -23,6 +23,17 @@ export class EstimatedForm1 implements OnInit {
 
   // FR07-4: ประเภทโครงการดึงจาก database ผ่าน API (admin แก้ลิสต์ได้จากหน้า Admin)
   projectTypes: ProjectType[] = [];
+
+  get selectedType(): ProjectType | undefined {
+    return this.projectTypes.find((t) => t.type_id === this.newProjectData.project_type_id);
+  }
+
+  // วิธีคำนวณของประเภท: REVENUE นับรายได้โดยตรง, COST_SAVING นับผลประโยชน์ทางอ้อม, ที่เหลือนับทั้งคู่
+  // (ใช้แค่อธิบายให้ผู้ใช้เห็นก่อนสร้าง — การคำนวณจริงทำที่ backend)
+  get counts(): { direct: boolean; indirect: boolean } {
+    const method = this.selectedType?.calculation_method;
+    return { direct: method !== 'COST_SAVING', indirect: method !== 'REVENUE' };
+  }
   isLoading = false;
 
   constructor(
