@@ -5,13 +5,15 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
+import { CategoryGroup } from '../models/roi-tracking-model';
 
 export interface Category {
   category_id: string;
   category_name: string;
   type_id: number;
-  category_group: 'INV' | 'OPC' | 'ADC' | 'BEN';
+  category_group: CategoryGroup;
   type_name: string;
+  usage_count?: number; // จำนวนรายการที่ใช้หมวดนี้อยู่ — มีข้อมูลแล้วเปลี่ยนกลุ่มไม่ได้
   is_inflow: boolean; // true = รายรับ, false = รายจ่าย
   // FR03-4: หมวดที่ตีมูลค่าจาก "ปริมาณ × อัตรา" จะมีชื่อหน่วยทั้งคู่ (null = กรอกยอดเงินตรงๆ)
   unit_label: string | null;
@@ -37,7 +39,7 @@ export class CategoryService {
 
   getCategories(): Observable<Category[]> {
     return this.http.get<ApiResponse<Category[]>>(this.API_URL).pipe(
-      map(res => (res.data || []).map(c => ({ ...c, is_inflow: !!c.is_inflow })))
+      map(res => (res.data || []).map(c => ({ ...c, is_inflow: !!c.is_inflow, usage_count: Number(c.usage_count || 0) })))
     );
   }
 
@@ -47,11 +49,10 @@ export class CategoryService {
     );
   }
 
-  // category_id ไม่ต้องส่งมาแล้ว — backend สร้างรหัสให้อัตโนมัติตามกลุ่มค่าใช้จ่าย
-  // (INVxxx/OPCxxx/ADCxxx/BENxxx ตาม FR03-3)
+  // category_id และ type_id (รายรับ/รายจ่าย) ไม่ต้องส่ง — backend กำหนดจากกลุ่มให้อัตโนมัติ
+  // (REVxxx/BENxxx = รายรับ, INVxxx/OPCxxx/ADCxxx = รายจ่าย)
   createCategory(category: {
     category_name: string;
-    type_id: number;
     category_group: string;
     unit_label?: string | null;
     rate_label?: string | null;
@@ -63,7 +64,6 @@ export class CategoryService {
     id: string,
     category: {
       category_name?: string;
-      type_id?: number;
       category_group?: string;
       unit_label?: string | null;
       rate_label?: string | null;

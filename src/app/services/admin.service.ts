@@ -4,6 +4,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
+import { CalculationMethod, ProjectStatus } from '../models/roi-tracking-model';
 
 export interface AdminUser {
   user_id: number;
@@ -28,6 +29,8 @@ export interface AdminProject {
   owner_email: string;
   project_type: string | null;
   status: 'Estimated' | 'Actual';
+  project_status?: ProjectStatus;
+  calculation_method?: CalculationMethod | null;
 }
 
 interface ApiResponse<T> {

@@ -35,9 +35,35 @@ export interface Project {
   target_roi_percent?: number | null; // เป้าหมาย ROI (%) ใช้ตัดสินสถานะคุ้มค่า/ไม่คุ้มค่า
   is_public?: boolean;           // สาธารณะ = true, ส่วนตัว = false
   created_at: Date;
-  status?: 'Estimated' | 'Actual';
+  status?: 'Estimated' | 'Actual';   // มีผลจริงแล้วหรือยัง (คำนวณจาก ledger)
+  project_status?: ProjectStatus;    // สถานะการดำเนินงานของโครงการ (เจ้าของกำหนด)
+  calculation_method?: CalculationMethod;
   owner_name?: string;           // ชื่อเจ้าของโปรเจกต์ — ใช้แสดงในหน้า Community
+  // ตัวชี้วัดสรุปจาก backend (GET /api/projects) — ใช้ชุดข้อมูลผลจริงถ้ามี ไม่งั้นใช้ประมาณการ
+  summary_phase?: 'Estimated' | 'Actual';
+  total_benefit?: number;
+  direct_revenue?: number;
+  indirect_benefit?: number;
+  total_cost?: number;
+  net_profit?: number;
+  roi?: number;
+  payback_month?: number | null;
+  is_worthwhile?: boolean | null;
 }
+
+// REVENUE = นับเฉพาะรายได้โดยตรง, COST_SAVING = นับเฉพาะประโยชน์ทางอ้อม, MIXED = นับทั้งสองแบบ
+export type CalculationMethod = 'REVENUE' | 'COST_SAVING' | 'MIXED';
+export type ProjectStatus = 'planning' | 'in_progress' | 'completed' | 'archived';
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  planning: 'กำลังวางแผน',
+  in_progress: 'กำลังดำเนินการ',
+  completed: 'สิ้นสุดโครงการ',
+  archived: 'เก็บถาวร',
+};
+
+// กลุ่มหมวดหมู่: REV = รายได้โดยตรง, BEN = ประโยชน์ทางอ้อม (ปริมาณ × อัตรา), ที่เหลือ = ต้นทุน
+export type CategoryGroup = 'REV' | 'BEN' | 'INV' | 'OPC' | 'ADC';
 
 export interface Category {
   category_id: string;
@@ -53,9 +79,11 @@ export interface ProjectLedger {
   type_id: number;               // 1 = Expense, 2 = Revenue
   category_id: string;
   category_name?: string;        // JOIN จาก categories.category_name
-  category_group?: 'INV' | 'OPC' | 'ADC' | 'BEN';
+  category_group?: CategoryGroup;
   type_name?: string;            // JOIN จาก entry_types.type_name
   is_inflow?: boolean;
+  unit_label?: string | null;
+  rate_label?: string | null;
   unit_qty?: number | null;      // ประโยชน์ทางอ้อม: ปริมาณที่ลดได้ (ชม./ชุด/ครั้ง)
   unit_cost?: number | null;     // ประโยชน์ทางอ้อม: อัตราต่อหน่วย
   total_value: number;           // ยอดเงินรวม (= unit_qty × unit_cost ถ้าเป็นแบบปริมาณ)

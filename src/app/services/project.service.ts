@@ -49,7 +49,21 @@ function normalizeProject(p: Project): Project {
     project_id: Number(p.project_id),
     initial_budget: Number(p.initial_budget || 0),
     target_roi_percent: p.target_roi_percent != null ? Number(p.target_roi_percent) : null,
+    is_public: !!p.is_public,
+    is_worthwhile: p.is_worthwhile == null ? null : !!p.is_worthwhile,
   };
+}
+
+// รายการจากฟอร์มในหน้ารายงาน: หนึ่งรายการครอบคลุมช่วงเดือน period_from..period_to
+// (backend กระจายเป็นแถวรายเดือน กำหนดวันที่ และประเภทรายรับ/รายจ่ายจากหมวดหมู่ให้เอง)
+export interface LedgerInput {
+  category_id: string;
+  period_from: number;
+  period_to: number;
+  total_value: number | null;
+  unit_qty: number | null;
+  unit_cost: number | null;
+  note: string;
 }
 
 @Injectable({
@@ -139,6 +153,7 @@ export class ProjectService {
       duration_months: changes.duration_months,
       initial_budget: changes.initial_budget,
       target_roi_percent: changes.target_roi_percent ?? null,
+      status: changes.project_status,
     });
   }
 
@@ -167,6 +182,17 @@ export class ProjectService {
     return this.http.put(`${this.API_URL}/${projectId}/ledgers/actual`, {
       ledgers: ledgers.map(toLedgerPayload),
     });
+  }
+
+  // 10.5 บันทึกรายการจากฟอร์มในหน้ารายงาน (แทนที่ของเดิมใน phase นั้นทั้งหมด)
+  replaceLedgerInputs(projectId: number, phase: 'Estimated' | 'Actual', items: LedgerInput[]): Observable<any> {
+    const path = phase === 'Estimated' ? 'estimated' : 'actual';
+    return this.http.put(`${this.API_URL}/${projectId}/ledgers/${path}`, { ledgers: items });
+  }
+
+  // 10.6 เปลี่ยนสถานะโครงการ (กำลังวางแผน / กำลังดำเนินการ / สิ้นสุดโครงการ)
+  updateProjectStatus(projectId: number, status: string): Observable<any> {
+    return this.http.put(`${this.API_URL}/${projectId}`, { status });
   }
 
   // 11. สลับ Public/Private
