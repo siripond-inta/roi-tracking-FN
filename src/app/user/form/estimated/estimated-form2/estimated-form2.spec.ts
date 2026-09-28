@@ -1,3 +1,6 @@
+import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { EstimatedForm2 } from './estimated-form2';
@@ -8,7 +11,8 @@ describe('EstimatedForm2', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [EstimatedForm2]
+      imports: [EstimatedForm2],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     })
     .compileComponents();
 

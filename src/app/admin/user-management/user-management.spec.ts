@@ -1,3 +1,6 @@
+import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { UserManagement } from './user-management';
@@ -8,7 +11,8 @@ describe('UserManagement', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [UserManagement]
+      imports: [UserManagement],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     })
     .compileComponents();
 
