@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Project } from '../../models/roi-tracking-model';
+import { PROJECT_STATUS_LABELS, Project, ProjectStatus } from '../../models/roi-tracking-model';
 import { ProjectService } from '../../services/project.service';
 import { ProjectTypeService, ProjectType } from '../../services/project-type.service';
 import { ToastService } from '../../services/toast.service';
@@ -19,6 +19,8 @@ interface ProjectEditForm {
   duration_months: number;
   initial_budget: number;
   target_roi_percent: number | null;
+  project_status: ProjectStatus;
+  has_actual: boolean; // มีผลจริงแล้วกลับไป "กำลังวางแผน" ไม่ได้ / ยังไม่มีผลจริงปิดโครงการไม่ได้
 }
 
 @Component({
@@ -39,8 +41,40 @@ export class Projects implements OnInit {
   isSavingEdit = false;
   editForm: ProjectEditForm = {
     project_id: 0, project_name: '', project_type_id: null,
-    duration_months: 12, initial_budget: 0, target_roi_percent: null
+    duration_months: 12, initial_budget: 0, target_roi_percent: null,
+    project_status: 'planning', has_actual: false
   };
+
+  readonly statusLabels = PROJECT_STATUS_LABELS;
+  readonly editableStatuses: ProjectStatus[] = ['planning', 'in_progress', 'completed'];
+
+  // ─── ตัวกรอง (ปุ่ม filter) — ประเภทโครงการมาจาก database, สถานะคือค่าที่ระบบรองรับ ───────
+  showFilters = false;
+  filterTypeId: number | null = null;
+  filterStatus: ProjectStatus | '' = '';
+  filterWorth: '' | 'yes' | 'no' | 'none' = '';
+
+  get activeFilterCount(): number {
+    return [this.filterTypeId != null, !!this.filterStatus, !!this.filterWorth].filter(Boolean).length;
+  }
+
+  clearFilters(): void {
+    this.filterTypeId = null;
+    this.filterStatus = '';
+    this.filterWorth = '';
+    this.pageIndex = 0;
+  }
+
+  onFilterChange(): void {
+    this.pageIndex = 0;
+  }
+
+  // สถานะที่เลือกได้ในฟอร์มแก้ไข — กฎเดียวกับ backend (backend ตรวจซ้ำอีกชั้น)
+  statusDisabled(status: ProjectStatus): boolean {
+    if (status === 'planning') return this.editForm.has_actual;
+    if (status === 'completed') return !this.editForm.has_actual;
+    return false;
+  }
 
   constructor(
     private projectService: ProjectService,
@@ -65,7 +99,9 @@ export class Projects implements OnInit {
       project_type_id: prj.project_type_id ?? null,
       duration_months: prj.duration_months,
       initial_budget: prj.initial_budget,
-      target_roi_percent: prj.target_roi_percent ?? null
+      target_roi_percent: prj.target_roi_percent ?? null,
+      project_status: prj.project_status ?? 'planning',
+      has_actual: prj.status === 'Actual'
     };
     this.showEditForm = true;
   }
@@ -95,7 +131,8 @@ export class Projects implements OnInit {
       project_type_id: f.project_type_id ?? undefined,
       duration_months: f.duration_months,
       initial_budget: f.initial_budget,
-      target_roi_percent: f.target_roi_percent
+      target_roi_percent: f.target_roi_percent,
+      project_status: f.project_status
     }).subscribe({
       next: () => {
         this.isSavingEdit = false;
@@ -137,19 +174,61 @@ export class Projects implements OnInit {
   // getter: กรองโปรเจกต์ตาม searchTerm แบบ real-time
   get filteredProjects(): Project[] {
     const term = this.searchTerm.trim().toLowerCase();
-    const list = !term
-      ? this.projectList
-      : this.projectList.filter(p =>
-          p.project_name.toLowerCase().includes(term) ||
-          String(p.project_id).includes(term)
-        );
+    const list = this.projectList.filter((p) => {
+      if (term && !p.project_name.toLowerCase().includes(term) && !String(p.project_id).includes(term)) return false;
+      if (this.filterTypeId != null && Number(p.project_type_id) !== this.filterTypeId) return false;
+      if (this.filterStatus && p.project_status !== this.filterStatus) return false;
+      if (this.filterWorth === 'yes' && p.is_worthwhile !== true) return false;
+      if (this.filterWorth === 'no' && p.is_worthwhile !== false) return false;
+      if (this.filterWorth === 'none' && p.is_worthwhile != null) return false;
+      return true;
+    });
     return this.sortProjects(list);
+  }
+
+  // ─── ส่งออก CSV (เปิดด้วย Excel ได้ — ใส่ BOM ให้อ่านภาษาไทยถูก) ───────────────────
+  exportCsv(): void {
+    const header = [
+      'รหัส', 'ชื่อโครงการ', 'ประเภท', 'สถานะ', 'ระยะเวลา (เดือน)', 'งบลงทุนเริ่มต้น',
+      'ข้อมูลที่ใช้', 'รายได้โดยตรง', 'ผลประโยชน์ทางอ้อม', 'ผลประโยชน์รวม', 'ต้นทุนรวม',
+      'ผลประโยชน์สุทธิ', 'ROI (%)', 'คืนทุนเดือนที่', 'เป้าหมาย ROI (%)', 'ความคุ้มค่า',
+    ];
+    const rows = this.filteredProjects.map((p) => [
+      `PRJ-${p.project_id}`,
+      p.project_name,
+      p.project_type ?? '',
+      p.project_status ? this.statusLabels[p.project_status] : '',
+      p.duration_months,
+      p.initial_budget,
+      p.summary_phase === 'Actual' ? 'ผลจริง' : 'ประมาณการ',
+      p.direct_revenue ?? 0,
+      p.indirect_benefit ?? 0,
+      p.total_benefit ?? 0,
+      p.total_cost ?? 0,
+      p.net_profit ?? 0,
+      Number(p.roi ?? 0).toFixed(2),
+      p.payback_month ?? '',
+      p.target_roi_percent ?? '',
+      p.is_worthwhile == null ? '' : p.is_worthwhile ? 'คุ้มค่า' : 'ไม่คุ้มค่า',
+    ]);
+    const escape = (v: unknown) => {
+      const text = String(v ?? '');
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const csv = [header, ...rows].map((r) => r.map(escape).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `roi-projects-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ─── เรียงลำดับ + แบ่งหน้า ────────────────────────────────────────────────
   // ตารางนี้โตตามจำนวนโครงการ ถ้า render ทุกแถวพร้อมกันจะช้าและเลื่อนหายาวมาก
   // จึงแบ่งหน้าและให้เลือกคอลัมน์ที่ใช้เรียงได้ (ทำงานฝั่ง client เพราะข้อมูลโหลดมาครบแล้ว)
-  sortKey: 'name' | 'budget' | 'duration' | 'created' = 'created';
+  sortKey: 'name' | 'budget' | 'duration' | 'created' | 'roi' = 'created';
   sortDir: 'asc' | 'desc' = 'desc';
   pageSize = 10;
   pageIndex = 0;
@@ -165,13 +244,15 @@ export class Projects implements OnInit {
           return (Number(a.initial_budget) - Number(b.initial_budget)) * dir;
         case 'duration':
           return (Number(a.duration_months) - Number(b.duration_months)) * dir;
+        case 'roi':
+          return (Number(a.roi ?? 0) - Number(b.roi ?? 0)) * dir;
         default:
           return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
       }
     });
   }
 
-  setSort(key: 'name' | 'budget' | 'duration' | 'created'): void {
+  setSort(key: 'name' | 'budget' | 'duration' | 'created' | 'roi'): void {
     if (this.sortKey === key) {
       this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     } else {

@@ -11,9 +11,18 @@
           placeholder="Search projects...">
       </div>
 
-      <button class="btn btn-white rounded-circle border shadow-sm p-0 d-flex align-items-center justify-content-center"
-        style="width: 40px; height: 40px;">
+      <button class="btn btn-white rounded-circle border shadow-sm p-0 d-flex align-items-center justify-content-center position-relative"
+        style="width: 40px; height: 40px;" (click)="showFilters = !showFilters" title="ตัวกรอง"
+        [class.active]="showFilters" aria-label="ตัวกรอง">
         <i class="bi bi-filter"></i>
+        <span *ngIf="activeFilterCount > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">
+          {{ activeFilterCount }}
+        </span>
+      </button>
+
+      <button class="btn btn-white rounded-pill border shadow-sm px-3 d-flex align-items-center" style="height: 40px;"
+        (click)="exportCsv()" [disabled]="filteredProjects.length === 0" title="ส่งออกรายการที่แสดงเป็นไฟล์ CSV">
+        <i class="bi bi-filetype-csv me-2"></i>CSV
       </button>
 
       <!-- viewer ดูได้อย่างเดียว ซ่อนปุ่มสร้างโครงการ (FR01-2) -->
@@ -22,6 +31,40 @@
         style="background-color: #00e676; border: none; height: 40px;">
         <i class="bi bi-plus-lg me-2"></i> New Project
       </button>
+    </div>
+  </div>
+
+  <!-- ─── ตัวกรอง ─────────────────────────────────────────────────────────── -->
+  <div *ngIf="showFilters" class="card border-0 shadow-sm rounded-4 p-3 mb-3">
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-md-4">
+        <label class="form-label small fw-bold text-muted">ประเภทโครงการ</label>
+        <select class="form-select form-select-sm rounded-3" [(ngModel)]="filterTypeId" (ngModelChange)="onFilterChange()">
+          <option [ngValue]="null">ทุกประเภท</option>
+          <option *ngFor="let t of projectTypes" [ngValue]="t.type_id">{{ t.type_name }}</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small fw-bold text-muted">สถานะ</label>
+        <select class="form-select form-select-sm rounded-3" [(ngModel)]="filterStatus" (ngModelChange)="onFilterChange()">
+          <option value="">ทุกสถานะ</option>
+          <option *ngFor="let s of editableStatuses" [value]="s">{{ statusLabels[s] }}</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small fw-bold text-muted">ความคุ้มค่า</label>
+        <select class="form-select form-select-sm rounded-3" [(ngModel)]="filterWorth" (ngModelChange)="onFilterChange()">
+          <option value="">ทั้งหมด</option>
+          <option value="yes">คุ้มค่า</option>
+          <option value="no">ไม่คุ้มค่า</option>
+          <option value="none">ยังไม่ตั้งเป้า</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2 text-md-end">
+        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" (click)="clearFilters()" [disabled]="activeFilterCount === 0">
+          ล้างตัวกรอง
+        </button>
+      </div>
     </div>
   </div>
 
@@ -51,8 +94,12 @@
             <th class="fw-semibold">TYPE</th>
             <th class="fw-semibold">STATUS</th>
             <th class="fw-semibold sortable" (click)="setSort('budget')">
-              AMOUNT (THB)
+              BUDGET (THB)
               <i class="bi ms-1" [ngClass]="sortKey === 'budget' ? (sortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill') : 'bi-arrow-down-up opacity-25'"></i>
+            </th>
+            <th class="fw-semibold sortable text-end" (click)="setSort('roi')">
+              ROI
+              <i class="bi ms-1" [ngClass]="sortKey === 'roi' ? (sortDir === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-down-fill') : 'bi-arrow-down-up opacity-25'"></i>
             </th>
             <th class="text-center pe-4 fw-semibold">ACTIONS</th>
           </tr>
@@ -80,14 +127,20 @@
             <td class="text-secondary">{{ prj.project_type || '-' }}</td>
 
             <td>
-              <!-- แก้ไข: อ่านจาก project.status จริง ไม่ใช้ ID เป็นตัวตัดสิน -->
-              <span class="badge rounded-pill px-3 py-2 fw-medium"
-                [ngClass]="prj.status === 'Actual' ? 'bg-success' : 'bg-light text-muted border'">
-                {{ prj.status ?? 'Estimated' }}
+              <span *ngIf="prj.project_status" class="badge rounded-pill px-3 py-2 status-badge"
+                [ngClass]="'status-' + prj.project_status">
+                {{ statusLabels[prj.project_status] }}
               </span>
             </td>
 
             <td class="fw-bold text-dark">{{ prj.initial_budget | number }}</td>
+
+            <td class="text-end text-nowrap">
+              <span class="fw-bold" [ngClass]="(prj.roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">
+                {{ (prj.roi ?? 0) | number:'1.1-1' }}%
+              </span>
+              <small class="d-block text-muted">{{ prj.summary_phase === 'Actual' ? 'ผลจริง' : 'ประมาณการ' }}</small>
+            </td>
 
             <td class="text-center pe-4">
               <!-- stopPropagation กันไม่ให้ปุ่มไป trigger การคลิกทั้งแถวไปด้วย -->
@@ -174,6 +227,18 @@
           <label class="form-label small fw-bold text-muted text-uppercase">ระยะเวลา (เดือน)</label>
           <input type="number" min="1" class="form-control rounded-3" [(ngModel)]="editForm.duration_months" name="editDuration">
         </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted text-uppercase">สถานะโครงการ</label>
+        <select class="form-select rounded-3" [(ngModel)]="editForm.project_status" name="editStatus">
+          <option *ngFor="let s of editableStatuses" [value]="s" [disabled]="statusDisabled(s)">
+            {{ statusLabels[s] }}
+          </option>
+        </select>
+        <small class="text-muted">
+          บันทึกผลจริงครั้งแรกจะเปลี่ยนเป็น "กำลังดำเนินการ" อัตโนมัติ · "สิ้นสุดโครงการ" ต้องมีผลจริงแล้ว และจะล็อกไม่ให้แก้ข้อมูล
+        </small>
       </div>
 
       <div class="row g-3 mb-4">
