@@ -74,7 +74,7 @@
                             <small class="text-muted fw-bold">TOTAL BENEFITS</small>
                             <h2 class="fw-bold mt-2">{{ totalBenefits / 1000000 | number:'1.1-1' }}M <small
                                     class="fs-6 fw-normal">THB</small></h2>
-                            <small class="text-success">Cumulative realized</small>
+                            <small class="text-muted">โดยตรง {{ totalDirect / 1000000 | number:'1.1-1' }}M · ทางอ้อม {{ totalIndirect / 1000000 | number:'1.1-1' }}M</small>
                         </div>
                         <div class="icon-box text-success fs-3"><i class="bi bi-piggy-bank"></i></div>
                     </div>
@@ -86,9 +86,8 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <small class="text-muted fw-bold">AVERAGE ROI</small>
-                            <h2 class="fw-bold mt-2 text-success">{{ averageROI | number:'1.1-1' }}% <i
-                                    class="bi bi-arrow-up"></i></h2>
-                            <small class="text-muted">Exceeding targets</small>
+                            <h2 class="fw-bold mt-2" [ngClass]="averageROI >= 0 ? 'text-success' : 'text-danger'">{{ averageROI | number:'1.1-1' }}%</h2>
+                            <small class="text-muted">คุ้มค่าตามเป้า {{ worthwhileCount }} จาก {{ projects.length }} โครงการ</small>
                         </div>
                         <div class="icon-box text-success fs-3"><i class="bi bi-bar-chart"></i></div>
                     </div>
@@ -110,7 +109,7 @@
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <select class="form-select form-select-sm rounded-pill w-auto" [(ngModel)]="chartMetric">
-                        <option value="benefit">ผลประโยชน์ vs ต้นทุน</option>
+                        <option value="benefit">ผลประโยชน์ (โดยตรง + ทางอ้อม) vs ต้นทุน</option>
                         <option value="roi">ROI (%)</option>
                     </select>
                     <select class="form-select form-select-sm rounded-pill w-auto" [(ngModel)]="chartTopN">
@@ -135,9 +134,9 @@
                     (click)="goToProject(prj)" style="cursor:pointer;">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <h5 class="fw-bold mb-0 text-dark">{{ prj.project_name }}</h5>
-                        <!-- แก้ไข: ส่ง prj object แทน ID เพื่อให้ดู status จริงได้ -->
-                        <span class="badge rounded-pill px-3 py-2" [ngClass]="getStatusClass(prj)">
-                            {{ prj.status === 'Actual' ? 'Active' : 'Draft' }}
+                        <span *ngIf="prj.project_status" class="badge rounded-pill px-3 py-2 status-badge"
+                            [ngClass]="'status-' + prj.project_status">
+                            {{ statusLabels[prj.project_status] }}
                         </span>
                     </div>
 
@@ -148,12 +147,12 @@
 
                     <div class="mb-4">
                         <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted">Budget Used</span>
-                            <span class="fw-bold">{{ getProjectBudgetUtilization(prj.project_id) | number:'1.0-0' }}%</span>
+                            <span class="text-muted">ต้นทุนเทียบงบ ({{ prj.summary_phase === 'Actual' ? 'จริง' : 'แผน' }})</span>
+                            <span class="fw-bold">{{ getProjectBudgetUtilization(prj) | number:'1.0-0' }}%</span>
                         </div>
                         <div class="progress" style="height: 8px;">
                             <div class="progress-bar bg-success"
-                                [style.width.%]="getProjectBudgetUtilization(prj.project_id)">
+                                [style.width.%]="getProjectBudgetUtilization(prj)">
                             </div>
                         </div>
                     </div>
@@ -164,9 +163,12 @@
                             <strong class="text-dark">{{ prj.initial_budget | number }}</strong>
                         </div>
                         <div class="col-6">
-                            <small class="text-muted d-block">EST. ROI</small>
-
-                            <strong class="text-success">{{ getProjectROI(prj.project_id) | number:'1.1-1' }}%</strong>
+                            <small class="text-muted d-block">ROI {{ prj.summary_phase === 'Actual' ? '(จริง)' : '(แผน)' }}</small>
+                            <strong [ngClass]="(prj.roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">{{ (prj.roi ?? 0) | number:'1.1-1' }}%</strong>
+                            <small *ngIf="prj.is_worthwhile !== null && prj.is_worthwhile !== undefined" class="d-block"
+                                [ngClass]="prj.is_worthwhile ? 'text-success' : 'text-danger'">
+                                {{ prj.is_worthwhile ? 'คุ้มค่า' : 'ไม่คุ้มค่า' }}
+                            </small>
                         </div>
                     </div>
 
@@ -183,7 +185,7 @@
                         </button>
                         <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2"
                               *ngIf="prj.status === 'Actual'">
-                            <i class="bi bi-check-circle me-1"></i>Completed
+                            <i class="bi bi-check-circle me-1"></i>มีผลจริงแล้ว
                         </span>
                     </div>
                 </div>

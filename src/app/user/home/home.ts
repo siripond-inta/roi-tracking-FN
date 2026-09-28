@@ -1,13 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { Project, ProjectLedger } from '../../models/roi-tracking-model';
+import { PROJECT_STATUS_LABELS, Project } from '../../models/roi-tracking-model';
 import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectService } from '../../services/project.service';
 import { ToastService } from '../../services/toast.service';
 import { AuthService } from '../../services/auth.service';
-import { forkJoin, of } from 'rxjs';
-import { timeout, catchError } from 'rxjs/operators';
+import { timeout } from 'rxjs/operators';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration } from 'chart.js';
 
@@ -20,7 +19,6 @@ import { ChartConfiguration } from 'chart.js';
 })
 export class Home implements OnInit {
   projects: Project[] = [];
-  ledger: ProjectLedger[] = [];
   searchTerm: string = ''; // ค่าค้นหาที่ผูกกับ input
   isLoading: boolean = false; // สถานะกำลังโหลดข้อมูล
 
@@ -28,6 +26,9 @@ export class Home implements OnInit {
   totalBudget: number = 0;
   totalBenefits: number = 0;
   averageROI: number = 0;
+  totalDirect = 0;
+  totalIndirect = 0;
+  worthwhileCount = 0;
   budgetUtilization: number = 0;
 
   constructor(
@@ -45,27 +46,13 @@ export class Home implements OnInit {
 
   ngOnInit(): void {
     this.isLoading = true;
-    // ใช้ forkJoin เพื่อรอให้ดึงโปรเจกต์และ Ledger ครบทั้งสองส่วน
-    // catchError: ถ้า observable ใดล้มเหลว → คืน array ว่างแทน ไม่ให้ forkJoin ค้าง
-    // timeout(10000): ถ้ารอเกิน 10 วินาที → จบทันที ไม่โหลดตลอดไป
-    forkJoin({
-      projects: this.projectService.getProjects().pipe(
-        timeout(10000),
-        catchError(err => { console.error('getProjects error:', err); return of([]); })
-      ),
-      ledger: this.projectService.getLedgers().pipe(
-        timeout(10000),
-        catchError(err => { console.error('getLedgers error:', err); return of([]); })
-      )
-    }).subscribe({
-      next: (result) => {
-        this.projects = result.projects as Project[];
-        this.ledger = result.ledger as ProjectLedger[];
-        this.isLoading = false; // ← เซ็ตก่อน calculateSummary() เสมอ
+    // ตัวชี้วัดของแต่ละโครงการ (ผลประโยชน์ ต้นทุน ROI ฯลฯ) คำนวณโดย backend มาพร้อมรายการโครงการแล้ว
+    // — ใช้สูตรเดียวกับหน้ารายงาน และนับผลประโยชน์ตามประเภทโครงการ ไม่ต้องดึง ledger มาคำนวณเองที่นี่
+    this.projectService.getProjects().pipe(timeout(10000)).subscribe({
+      next: (projects) => {
+        this.projects = projects;
+        this.isLoading = false;
         this.calculateSummary();
-        if (this.projects.length === 0) {
-          this.toastService.error('ไม่สามารถโหลดข้อมูลโปรเจกต์ได้ กรุณาตรวจสอบ connection');
-        }
       },
       error: (err) => {
         console.error('Error loading dashboard data:', err);
@@ -75,53 +62,24 @@ export class Home implements OnInit {
     });
   }
 
-  // ─── Helper: เลือก Ledger Phase ที่ถูกต้องตาม Project Status ───────────
-  // หลักการ: โปรเจกต์ที่มีข้อมูล Actual แล้ว → ใช้แค่ Actual (ของจริง)
-  //          โปรเจกต์ที่ยังเป็น Estimated → ใช้แค่ Estimated (ประมาณการ)
-  // เหตุผล: ถ้าใช้ทั้งสอง Phase ปนกัน ยอดจะถูกนับซ้ำ (doubled)
-  private getRelevantLedgers(projectId: number): ProjectLedger[] {
-    const project = this.projects.find(p => Number(p.project_id) === Number(projectId));
-    // เลือก phase ตาม status ของโปรเจกต์
-    const preferredPhase = project?.status === 'Actual' ? 'Actual' : 'Estimated';
-    return this.ledger.filter(
-      l => Number(l.project_id) === Number(projectId) && l.phase === preferredPhase
-    );
-  }
-
   calculateSummary(): void {
-    // 1. รวมงบประมาณเริ่มต้นของทุกโปรเจกต์ด้วย reduce() (เเปลงเป็น Number ป้องกัน String Concatenation)
-    this.totalBudget = this.projects.reduce((sum, prj) => sum + Number(prj.initial_budget || 0), 0);
+    const sum = (pick: (p: Project) => number | undefined) =>
+      this.projects.reduce((s, p) => s + Number(pick(p) || 0), 0);
 
-    // 2-3. รวม Revenue และ Expense โดยใช้เฉพาะ Phase ที่ถูกต้องของแต่ละโปรเจกต์
-    let totalRevenue = 0;
-    let totalExpenses = 0;
+    this.totalBudget = sum((p) => p.initial_budget);
+    this.totalBenefits = sum((p) => p.total_benefit);
+    this.totalDirect = sum((p) => p.direct_revenue);
+    this.totalIndirect = sum((p) => p.indirect_benefit);
+    const totalCost = sum((p) => p.total_cost);
 
-    this.projects.forEach(project => {
-      const relevant = this.getRelevantLedgers(project.project_id);
-      totalRevenue  += relevant
-        .filter(l => Number(l.type_id) === 2)
-        .reduce((sum, l) => sum + Number(l.total_value || 0), 0);
-      totalExpenses += relevant
-        .filter(l => Number(l.type_id) === 1)
-        .reduce((sum, l) => sum + Number(l.total_value || 0), 0);
-    });
+    // ROI เฉลี่ยของโครงการที่มีข้อมูลต้นทุนแล้ว (โครงการเปล่ายังไม่มี ROI จริง ไม่ควรดึงค่าเฉลี่ยลง)
+    const withData = this.projects.filter((p) => Number(p.total_cost || 0) > 0);
+    this.averageROI = withData.length
+      ? withData.reduce((s, p) => s + Number(p.roi || 0), 0) / withData.length
+      : 0;
+    this.worthwhileCount = this.projects.filter((p) => p.is_worthwhile === true).length;
 
-    this.totalBenefits = totalRevenue;
-
-    // 4. คำนวณ Average ROI จากค่าเฉลี่ย ROI ของโปรเจกต์ที่มีข้อมูล
-    if (this.projects.length > 0) {
-      const projectROIs = this.projects.map(p => this.getProjectROI(p.project_id));
-      this.averageROI = projectROIs.reduce((sum, r) => sum + r, 0) / projectROIs.length;
-    } else {
-      this.averageROI = 0;
-    }
-
-    // Budget Utilization: สัดส่วนค่าใช้จ่ายเทียบกับงบตั้งต้น
-    if (this.totalBudget > 0) {
-      this.budgetUtilization = (totalExpenses / this.totalBudget) * 100;
-    } else {
-      this.budgetUtilization = 0;
-    }
+    this.budgetUtilization = this.totalBudget > 0 ? (totalCost / this.totalBudget) * 100 : 0;
   }
 
   // ─── FR05-1: กราฟแท่งเปรียบเทียบผลประโยชน์รายโครงการบนแดชบอร์ด ─────────────
@@ -134,16 +92,10 @@ export class Home implements OnInit {
   chartMetric: 'benefit' | 'roi' = 'benefit';
   readonly topNOptions = [5, 8, 10, 15, 20];
 
-  private sumByType(projectId: number, typeId: number): number {
-    return this.getRelevantLedgers(projectId)
-      .filter((l) => Number(l.type_id) === typeId)
-      .reduce((s, l) => s + Number(l.total_value || 0), 0);
-  }
-
   // โครงการที่จะเอาขึ้นกราฟ: เรียงตามตัวชี้วัดที่เลือก แล้วตัดเอา N อันดับแรก
   private get chartProjects(): Project[] {
     const score = (p: Project) =>
-      this.chartMetric === 'roi' ? this.getProjectROI(p.project_id) : this.sumByType(p.project_id, 2);
+      this.chartMetric === 'roi' ? Number(p.roi || 0) : Number(p.total_benefit || 0);
     return [...this.projects].sort((a, b) => score(b) - score(a)).slice(0, this.chartTopN);
   }
 
@@ -168,10 +120,8 @@ export class Home implements OnInit {
         datasets: [
           {
             label: 'ROI (%)',
-            data: projects.map((p) => this.getProjectROI(p.project_id)),
-            backgroundColor: projects.map((p) =>
-              this.getProjectROI(p.project_id) >= 0 ? '#198754' : 'rgba(220,53,69,.75)'
-            ),
+            data: projects.map((p) => Number(p.roi || 0)),
+            backgroundColor: projects.map((p) => (Number(p.roi || 0) >= 0 ? '#198754' : 'rgba(220,53,69,.75)')),
             borderRadius: 6,
           },
         ],
@@ -181,17 +131,27 @@ export class Home implements OnInit {
     return {
       labels,
       datasets: [
+        // ผลประโยชน์ซ้อนเป็นแท่งเดียว (รายได้โดยตรง + ทางอ้อม) เทียบกับแท่งต้นทุน
         {
-          label: 'ผลประโยชน์ (รายรับ)',
-          data: projects.map((p) => this.sumByType(p.project_id, 2)),
+          label: 'รายได้โดยตรง',
+          data: projects.map((p) => Number(p.direct_revenue || 0)),
           backgroundColor: '#198754',
           borderRadius: 6,
+          stack: 'benefit',
         },
         {
-          label: 'ต้นทุน (รายจ่าย)',
-          data: projects.map((p) => this.sumByType(p.project_id, 1)),
+          label: 'ผลประโยชน์ทางอ้อม',
+          data: projects.map((p) => Number(p.indirect_benefit || 0)),
+          backgroundColor: '#0f7b8a',
+          borderRadius: 6,
+          stack: 'benefit',
+        },
+        {
+          label: 'ต้นทุน',
+          data: projects.map((p) => Number(p.total_cost || 0)),
           backgroundColor: 'rgba(220,53,69,.75)',
           borderRadius: 6,
+          stack: 'cost',
         },
       ],
     };
@@ -261,48 +221,12 @@ export class Home implements OnInit {
     this.visibleCardCount = this.cardPageSize;
   }
 
-  // แก้ไข: รับ Project object แทน project_id เพื่อดูสถานะจริง ไม่ใช่ตรวจ ID ตรงๆ
-  getStatusClass(project: Project): string {
-    return project.status === 'Actual'
-      ? 'bg-success-subtle text-success'
-      : 'bg-warning-subtle text-warning';
-  }
+  readonly statusLabels = PROJECT_STATUS_LABELS;
 
-  // คำนวณ ROI รายโปรเจกต์ โดยใช้เฉพาะ Phase ที่ถูกต้อง
-  // (ใช้ getRelevantLedgers() เพื่อไม่ให้ Estimated + Actual นับซ้ำกัน)
-  getProjectROI(projectId: number): number {
-    const project = this.projects.find(p => Number(p.project_id) === Number(projectId));
-    const relevant = this.getRelevantLedgers(projectId);
-
-    // ถ้าไม่มีรายการ Ledger ใดๆ ใน Phase นี้ ให้ ROI = 0
-    if (relevant.length === 0) return 0;
-
-    const revenue = relevant
-      .filter(l => Number(l.type_id) === 2)
-      .reduce((s, l) => s + Number(l.total_value || 0), 0);
-
-    const expenses = relevant
-      .filter(l => Number(l.type_id) === 1)
-      .reduce((s, l) => s + Number(l.total_value || 0), 0);
-
-    // ต้นทุน (Cost): ใช้ค่าใช้จ่ายจริงจาก Ledger ถ้ามี (> 0) หรือใช้ initial_budget ของโปรเจกต์เป็น fallback
-    const effectiveCost = expenses > 0 ? expenses : Number(project?.initial_budget || 0);
-
-    // สูตร ROI (%): ((Revenue - Cost) / Cost) * 100
-    return effectiveCost > 0 ? ((revenue - effectiveCost) / effectiveCost) * 100 : 0;
-  }
-
-  // สัดส่วนงบที่ใช้ไปแล้วของโปรเจกต์นี้ (คำนวณจากรายจ่ายจริง/ประมาณการเทียบกับ initial_budget)
-  // ใช้แทนแถบ "Progress" เดิมที่เคย hardcode ไว้ (75%/40%/10% ตาม project_id)
-  getProjectBudgetUtilization(projectId: number): number {
-    const project = this.projects.find(p => Number(p.project_id) === Number(projectId));
-    const budget = Number(project?.initial_budget || 0);
+  // สัดส่วนต้นทุน (ตามข้อมูลล่าสุด: ผลจริงถ้ามี ไม่งั้นประมาณการ) เทียบกับงบตั้งต้น
+  getProjectBudgetUtilization(prj: Project): number {
+    const budget = Number(prj.initial_budget || 0);
     if (budget <= 0) return 0;
-
-    const expenses = this.getRelevantLedgers(projectId)
-      .filter(l => Number(l.type_id) === 1)
-      .reduce((s, l) => s + Number(l.total_value || 0), 0);
-
-    return Math.min((expenses / budget) * 100, 100);
+    return Math.min((Number(prj.total_cost || 0) / budget) * 100, 100);
   }
 }
