@@ -5,525 +5,188 @@
     <p class="text-muted mt-3 fw-bold">กำลังโหลดข้อมูล...</p>
   </div>
 
-  <div *ngIf="!isLoading && project">
+  <div *ngIf="!isLoading && project" id="printArea">
 
-    <!-- ─── Header: ชื่อโปรเจกต์อยู่ที่ header บนสุดแล้ว (ระดับเดียวกับชื่อ user) — ที่นี่เหลือ
-         แค่ meta info + status ─────────────────────────────────────────────── -->
+    <!-- ─── หัวกระดาษเฉพาะตอนพิมพ์ (ชื่อโครงการปกติอยู่ที่ header ของ layout ซึ่งไม่ติดไปกับ PDF) ── -->
+    <div class="print-header mb-4">
+      <h3 class="fw-bold mb-1">{{ project.project_name }}</h3>
+      <p class="text-muted mb-0">
+        Estimated Report (ประมาณการ) · {{ project.project_type }} ·
+        จัดทำโดย {{ project.owner_name || authService.currentUser()?.fullName }} ·
+        พิมพ์เมื่อ {{ today | date:'d MMMM yyyy' }}
+      </p>
+    </div>
+
+    <!-- ─── Meta + Actions ─────────────────────────────────────────────────── -->
     <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
-      <div>
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-          <small class="text-muted">PRJ-{{ project.project_id }}</small>
-          <span class="text-muted">·</span>
-          <small class="text-muted">{{ project.duration_months }} เดือน</small>
-          <span class="text-muted">·</span>
-          <small class="text-muted">งบ ฿{{ project.initial_budget | number }}</small>
-          <span class="badge" [ngClass]="project.status === 'Actual' ? 'bg-success' : 'bg-warning text-dark'">
-            {{ project.status }}
-          </span>
-          <!-- ผู้ชมที่ไม่ใช่เจ้าของ (มาจากหน้า Community) เห็นแค่ป้ายบอกสถานะ สลับเองไม่ได้ -->
-          <span *ngIf="!isOwner" class="badge rounded-pill d-flex align-items-center gap-1"
-            [ngClass]="isPublic ? 'bg-success' : 'bg-secondary'">
-            <i class="bi" [ngClass]="isPublic ? 'bi-globe2' : 'bi-lock-fill'"></i>
-            {{ isPublic ? 'สาธารณะ' : 'ส่วนตัว' }}
-          </span>
-        </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <small class="text-muted">PRJ-{{ project.project_id }}</small>
+        <span class="text-muted">·</span>
+        <small class="text-muted">{{ project.project_type }}</small>
+        <span class="text-muted">·</span>
+        <small class="text-muted">{{ project.duration_months }} เดือน</small>
+        <span class="text-muted">·</span>
+        <small class="text-muted">งบ ฿{{ project.initial_budget | number }}</small>
+        <span *ngIf="project.project_status" class="badge rounded-pill status-badge"
+          [ngClass]="'status-' + project.project_status">
+          {{ statusLabels[project.project_status] }}
+        </span>
+        <span *ngIf="!isOwner" class="badge rounded-pill d-flex align-items-center gap-1"
+          [ngClass]="isPublic ? 'bg-success' : 'bg-secondary'">
+          <i class="bi" [ngClass]="isPublic ? 'bi-globe2' : 'bi-lock-fill'"></i>
+          {{ isPublic ? 'สาธารณะ' : 'ส่วนตัว' }}
+        </span>
       </div>
 
-      <!-- Action Buttons Top Right -->
-      <div class="d-flex gap-2 flex-wrap">
-        <!-- โหมด View -->
+      <div class="d-flex gap-2 flex-wrap no-print">
         <ng-container *ngIf="mode === 'view'">
-          <button *ngIf="project.status === 'Actual'"
-            [routerLink]="['/user/actual-report', project.project_id]"
+          <button (click)="printReport()" class="btn btn-outline-dark rounded-pill px-4">
+            <i class="bi bi-printer me-2"></i>พิมพ์ / PDF
+          </button>
+          <button *ngIf="project.status === 'Actual'" [routerLink]="['/user/actual-report', project.project_id]"
             class="btn btn-success rounded-pill px-4">
             <i class="bi bi-graph-up-arrow me-2"></i>ดูรายงาน Actual
           </button>
-          <!-- ปุ่มสลับ public/private: ต้องมีข้อมูล Actual แล้วเท่านั้นถึงจะเปิดสาธารณะได้ -->
-          <button *ngIf="isOwner && project.status === 'Actual'" (click)="toggleVisibility()"
-            class="btn rounded-pill px-4"
-            [ngClass]="isPublic ? 'btn-success' : 'btn-outline-success'">
-            <i class="bi me-2" [ngClass]="isPublic ? 'bi-globe2' : 'bi-lock-fill'"></i>
-            {{ isPublic ? 'สาธารณะ · เปลี่ยนเป็นส่วนตัว' : 'ส่วนตัว · เปลี่ยนเป็นสาธารณะ' }}
-          </button>
-          <button *ngIf="isOwner && project.status !== 'Actual'" disabled
-            class="btn btn-outline-secondary rounded-pill px-4" type="button"
-            title="ต้องมีข้อมูล Actual ก่อน ถึงจะเปิดเป็นสาธารณะได้"
-            style="opacity:.6;">
-            <i class="bi bi-lock-fill me-2"></i>ส่วนตัว (ต้องมี Actual ก่อน)
-          </button>
-          <button *ngIf="isEditable" (click)="startEdit()"
-            class="btn btn-outline-primary rounded-pill px-4">
+          <!-- สลับ public/private ได้เมื่อมีผลจริงแล้ว -->
+          <div *ngIf="isOwner" class="form-check form-switch d-flex align-items-center gap-2 mb-0 ps-5 border rounded-pill pe-3 py-1"
+            [title]="project.status === 'Actual' ? '' : 'ต้องมีข้อมูล Actual ก่อน ถึงจะเปิดเป็นสาธารณะได้'">
+            <input class="form-check-input mt-0" type="checkbox" role="switch" id="visSwitch"
+              [checked]="isPublic" [disabled]="project.status !== 'Actual'" (change)="toggleVisibility()">
+            <label class="form-check-label small" for="visSwitch">
+              <i class="bi me-1" [ngClass]="isPublic ? 'bi-globe2' : 'bi-lock-fill'"></i>{{ isPublic ? 'สาธารณะ' : 'ส่วนตัว' }}
+            </label>
+          </div>
+          <button *ngIf="isEditable" (click)="startEdit()" class="btn btn-outline-primary rounded-pill px-4">
             <i class="bi bi-pencil-square me-2"></i>แก้ไข
           </button>
-          <!-- <button routerLink="/user/projects" class="btn btn-outline-secondary rounded-pill px-4">
-            <i class="bi bi-arrow-left me-1"></i>ย้อนกลับ
-          </button> -->
         </ng-container>
 
-        <!-- โหมด Edit -->
         <ng-container *ngIf="mode === 'edit'">
-          <button (click)="saveEstimated()" [disabled]="isSaving"
-            class="btn rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center"
-            style="background:linear-gradient(135deg,#1a6b3c,#28a745); border:none; color:white;">
+          <button (click)="saveEstimated()" [disabled]="isSaving" class="btn btn-brand rounded-pill px-4 fw-bold shadow-sm">
             <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-2"></span>
             <i *ngIf="!isSaving" class="bi bi-floppy2 me-2"></i>
-            {{ isSaving ? 'กำลังบันทึก...' : 'บันทึก Estimated' }}
+            {{ isSaving ? 'กำลังบันทึก...' : 'บันทึกประมาณการ' }}
           </button>
-          <button (click)="cancelEdit()" [disabled]="isSaving"
-            class="btn btn-outline-secondary rounded-pill px-4">
+          <button (click)="cancelEdit()" [disabled]="isSaving" class="btn btn-outline-secondary rounded-pill px-4">
             <i class="bi bi-x-circle me-1"></i>ยกเลิก
           </button>
         </ng-container>
       </div>
     </div>
 
-    <!-- ─── Top 6 KPI Summary Cards (Real-time Live Calculation) ─────────────
-         การ์ดสีขาวเหมือนกันหมด + icon chip สีตามความหมาย (ไม่ใช่ไล่สี gradient สุ่มต่อการ์ด) —
-         ให้เข้ากับ theme เขียวของเว็บ และตัวเลขสำคัญ (ROI/กำไร) ใช้สีเขียว/แดงบอกบวก-ลบเอง -->
-    <div class="row g-3 mb-4">
-      <!-- 1. ROI -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border-0 h-100 shadow-sm rounded-4 p-3">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="kpi-icon kpi-icon-success"><i class="bi bi-graph-up-arrow"></i></span>
-            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">ROI ประมาณการ</small>
-          </div>
-          <div class="fw-bold" style="font-size:1.5rem"
-            [ngClass]="displayedROI >= 0 ? 'text-success' : 'text-danger'">
-            {{ displayedROI | number:'1.1-1' }}%
-          </div>
-          <small class="text-muted">ผลตอบแทนการลงทุน</small>
-        </div>
-      </div>
-
-      <!-- 2. กำไรสุทธิ -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border-0 h-100 shadow-sm rounded-4 p-3">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="kpi-icon" [ngClass]="displayedNet >= 0 ? 'kpi-icon-success' : 'kpi-icon-danger'">
-              <i class="bi bi-cash-stack"></i>
-            </span>
-            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">กำไรสุทธิ</small>
-          </div>
-          <div class="fw-bold" style="font-size:1.3rem" [ngClass]="displayedNet >= 0 ? 'text-success' : 'text-danger'">
-            ฿{{ displayedNet | number }}
-          </div>
-          <small class="text-muted">รายรับ – รายจ่าย</small>
-        </div>
-      </div>
-
-      <!-- 3. รายรับรวม -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border-0 h-100 shadow-sm rounded-4 p-3">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="kpi-icon kpi-icon-success"><i class="bi bi-arrow-up-circle"></i></span>
-            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">รายรับรวม</small>
-          </div>
-          <div class="fw-bold text-success" style="font-size:1.3rem">฿{{ displayedRevenue | number }}</div>
-          <small class="text-muted">ประมาณการรายรับ</small>
-        </div>
-      </div>
-
-      <!-- 4. รายจ่ายรวม -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border-0 h-100 shadow-sm rounded-4 p-3">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="kpi-icon kpi-icon-danger"><i class="bi bi-arrow-down-circle"></i></span>
-            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">รายจ่ายรวม</small>
-          </div>
-          <div class="fw-bold text-danger" style="font-size:1.3rem">฿{{ displayedExpense | number }}</div>
-          <small class="text-muted">ประมาณการรายจ่าย</small>
-        </div>
-      </div>
-
-      <!-- 5. ระยะคืนทุน -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border-0 h-100 shadow-sm rounded-4 p-3">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="kpi-icon kpi-icon-info"><i class="bi bi-hourglass-split"></i></span>
-            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">ระยะคืนทุน</small>
-          </div>
-          <div class="fw-bold text-dark" style="font-size:1.3rem">
-            <span *ngIf="displayedPayback !== null">เดือนที่ {{ displayedPayback }}</span>
-            <span *ngIf="displayedPayback === null" class="text-muted">ยังไม่คืนทุน</span>
-          </div>
-          <small class="text-muted">เดือนแรกที่เงินสดสะสม ≥ เงินลงทุน</small>
-        </div>
-      </div>
-
-      <!-- 6. สถานะความคุ้มค่า — เทียบ ROI กับเป้าหมายที่ตั้งไว้ตอนสร้างโครงการ -->
-      <div class="col-6 col-md-4 col-xl-2">
-        <div class="card border-0 h-100 shadow-sm rounded-4 p-3">
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="kpi-icon" [ngClass]="isWorthwhile === null ? 'kpi-icon-neutral' : (isWorthwhile ? 'kpi-icon-success' : 'kpi-icon-danger')">
-              <i class="bi bi-bullseye"></i>
-            </span>
-            <small class="text-muted fw-bold text-uppercase" style="font-size:.68rem">ความคุ้มค่า</small>
-          </div>
-          <div class="fw-bold" style="font-size:1.3rem"
-            [ngClass]="isWorthwhile === null ? 'text-muted' : (isWorthwhile ? 'text-success' : 'text-danger')">
-            <span *ngIf="isWorthwhile === null">ยังไม่ตั้งเป้า</span>
-            <span *ngIf="isWorthwhile === true">คุ้มค่า</span>
-            <span *ngIf="isWorthwhile === false">ไม่คุ้มค่า</span>
-          </div>
-          <small class="text-muted" *ngIf="targetRoi !== null">เป้าหมาย ROI {{ targetRoi }}%</small>
-          <small class="text-muted" *ngIf="targetRoi === null">ตั้งเป้าหมาย ROI ได้ที่หน้าแก้ไขโครงการ</small>
-        </div>
-      </div>
+    <!-- เหตุผลที่แก้ไขไม่ได้ (เฉพาะเจ้าของ) -->
+    <div *ngIf="isOwner && mode === 'view' && hasActualData" class="alert alert-light border rounded-3 small py-2 px-3 no-print">
+      <i class="bi bi-lock-fill me-1"></i>ประมาณการถูกล็อกแล้ว เพราะเริ่มบันทึกผลจริง (Actual) แล้ว
+    </div>
+    <div *ngIf="isOwner && mode === 'view' && !hasActualData && isLockedStatus" class="alert alert-light border rounded-3 small py-2 px-3 no-print">
+      <i class="bi bi-lock-fill me-1"></i>โครงการสิ้นสุดแล้ว — เปลี่ยนสถานะเป็น "กำลังดำเนินการ" ที่หน้า Projects เพื่อแก้ไขข้อมูล
     </div>
 
-    <!-- ─── FR04-1 / FR05-2: กระแสเงินสดรายเดือน + ยอดสะสม (โหมดดูผล) ──────────── -->
-    <div *ngIf="mode === 'view' && analytics" class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
-      <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h6 class="fw-bold mb-0">
-          <i class="bi bi-cash-coin me-2 text-success"></i>กระแสเงินสดรายเดือน (Net Cash Flow)
-        </h6>
-        <small class="text-muted">
-          เงินลงทุนเริ่มต้น ฿{{ analytics.project.initial_budget | number }}
-          <span *ngIf="estPaybackMonths !== null"> · คืนทุนเดือนที่ {{ estPaybackMonths }}</span>
-        </small>
-      </div>
-      <div class="table-responsive">
-        <table class="table align-middle mb-0 text-nowrap">
-          <thead class="table-light text-muted small">
-            <tr>
-              <th class="ps-4">เดือนที่</th>
-              <th class="text-end">รายรับ</th>
-              <th class="text-end">รายจ่าย</th>
-              <th class="text-end">NCF</th>
-              <th class="text-end pe-4">กระแสเงินสดสะสม</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let m of analytics.monthly"
-              [class.table-success]="estPaybackMonths === m.period">
-              <td class="ps-4 fw-bold">
-                {{ m.period }}
-                <i *ngIf="estPaybackMonths === m.period" class="bi bi-flag-fill text-success ms-1"
-                  title="เดือนที่คืนทุน"></i>
-              </td>
-              <td class="text-end text-success">฿{{ m.estimated.revenue | number }}</td>
-              <td class="text-end text-danger">฿{{ m.estimated.expense | number }}</td>
-              <td class="text-end fw-bold" [ngClass]="m.estimated.ncf >= 0 ? 'text-success' : 'text-danger'">
-                ฿{{ m.estimated.ncf | number }}
-              </td>
-              <td class="text-end fw-bold pe-4" [ngClass]="m.estimated.cumulative >= 0 ? 'text-dark' : 'text-danger'">
-                ฿{{ m.estimated.cumulative | number }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <!-- ─── KPI ─────────────────────────────────────────────────────────────── -->
+    <app-kpi-cards class="d-block mb-2" [summary]="shown" label="ประมาณการ"
+      [targetRoi]="targetRoi" [worthwhile]="isWorthwhile"></app-kpi-cards>
+
+    <div class="preview-status small text-muted mb-3 no-print">
+      <ng-container *ngIf="mode === 'edit' && draft">
+        <span *ngIf="draft.previewLoading"><span class="spinner-border spinner-border-sm me-1"></span>กำลังคำนวณผลลัพธ์...</span>
+        <span *ngIf="!draft.previewLoading && !draft.previewError"><i class="bi bi-check2-circle text-success me-1"></i>ตัวเลขด้านบนคำนวณจากรายการที่กำลังกรอก (ยังไม่บันทึก)</span>
+      </ng-container>
+    </div>
+    <div *ngIf="mode === 'edit' && draft?.previewError" class="alert alert-danger rounded-3 small py-2 px-3">
+      <i class="bi bi-exclamation-circle me-1"></i>{{ draft?.previewError }}
     </div>
 
-    <!-- ─── Stacked Full-Width Sections: รายรับ แล้วตามด้วยรายจ่าย ───────────── -->
-    <div class="d-flex flex-column gap-4 mb-4">
+    <!-- ─── องค์ประกอบของผลประโยชน์ (รายได้โดยตรง / ทางอ้อม ตามประเภทโครงการ) ───── -->
+    <app-benefit-summary class="d-block mb-4" [summary]="shown" [counted]="counted"
+      [projectType]="project.project_type" phaseLabel="ประมาณการ"></app-benefit-summary>
 
-      <!-- ==================== รายรับ ==================== -->
-      <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-          <!-- Card Header -->
-          <div class="card-header bg-success bg-opacity-10 border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 text-success">
-              <i class="bi bi-arrow-up-circle-fill me-2"></i>รายรับ
-            </h6>
-            <span *ngIf="mode === 'edit'" class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
-              แก้ไขรายรับ
-            </span>
-          </div>
+    <!-- ─── โหมดแก้ไข: 3 ส่วน ──────────────────────────────────────────────── -->
+    <div *ngIf="mode === 'edit' && draft" class="d-flex flex-column gap-4 mb-4">
+      <ng-container *ngFor="let s of sources">
+        <app-ledger-section-editor *ngIf="showSection(s, draft.rows)"
+          [source]="s" [rows]="draft.rows[s]" [categories]="allCategories"
+          [durationMonths]="project.duration_months" [counted]="isCounted(s)"
+          (changed)="draft.changed()"></app-ledger-section-editor>
+      </ng-container>
 
-          <!-- Body: Edit Mode -->
-          <div *ngIf="mode === 'edit'" class="p-3 p-md-4">
-            <!-- Table Rows -->
-            <div class="d-flex flex-column gap-2 mb-3">
-              <div class="ledger-row-card is-revenue rounded-3 p-2 p-md-3" *ngFor="let row of revenueRows; let i = index">
-                <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
-                  <span class="ledger-index bg-revenue">{{ i + 1 }}</span>
-
-                  <div class="ledger-row-field-category">
-                    <label class="form-label small text-muted mb-1">หมวดหมู่</label>
-                    <select class="form-select form-select-sm rounded-3 bg-light border-1"
-                      [(ngModel)]="row.category_id" (ngModelChange)="onCategoryChange(row)">
-                      <option *ngFor="let c of revenueCategories" [value]="c.category_id">{{ c.category_name }}</option>
-                    </select>
-                  </div>
-
-                  <!-- FR03-2: เลือกงวด/เดือนแทนการกรอกวันที่เอง — วันที่คิดจากเดือนเริ่มโครงการให้อัตโนมัติ -->
-                  <div class="ledger-row-field-date">
-                    <label class="form-label small text-muted mb-1">เดือนที่</label>
-                    <select class="form-select form-select-sm rounded-3 bg-light border-1" [(ngModel)]="row.period_index">
-                      <option *ngFor="let p of periods" [ngValue]="p">เดือนที่ {{ p }}</option>
-                    </select>
-                  </div>
-
-                  <!-- หมวดปกติ: กรอกยอดเงินตรงๆ -->
-                  <div class="ledger-row-field-amount" *ngIf="!isQtyRow(row)">
-                    <label class="form-label small text-muted mb-1">จำนวน (฿)</label>
-                    <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold text-success"
-                      [(ngModel)]="row.total_value" placeholder="0" min="0">
-                  </div>
-
-                  <!-- FR03-4: หมวดประโยชน์ทางอ้อม กรอกปริมาณ × อัตรา แล้วระบบคูณให้ -->
-                  <ng-container *ngIf="isQtyRow(row)">
-                    <div class="ledger-row-field-amount">
-                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.unit_label }}</label>
-                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
-                        [(ngModel)]="row.unit_qty" placeholder="0" min="0">
-                    </div>
-                    <div class="ledger-row-field-amount">
-                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.rate_label }}</label>
-                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
-                        [(ngModel)]="row.unit_cost" placeholder="0" min="0">
-                    </div>
-                    <div class="ledger-row-field-amount">
-                      <label class="form-label small text-muted mb-1">มูลค่าที่ตีได้ (฿)</label>
-                      <div class="form-control form-control-sm rounded-3 border-1 text-end fw-bold text-success bg-success bg-opacity-10">
-                        ฿{{ rowAmount(row) | number }}
-                      </div>
-                    </div>
-                  </ng-container>
-
-                  <div class="ledger-row-note">
-                    <label class="form-label small text-muted mb-1">หมายเหตุ</label>
-                    <input type="text" class="form-control form-control-sm rounded-3 bg-light border-1"
-                      [(ngModel)]="row.note" placeholder="เพิ่มรายละเอียดเพิ่มเติม (ถ้ามี)...">
-                  </div>
-
-                  <button type="button" class="btn btn-sm btn-outline-danger rounded-circle border-0 p-1 ms-auto align-self-end align-self-md-center"
-                    (click)="removeRevenueRow(i)" title="ลบรายการ">
-                    <i class="bi bi-trash3" style="font-size:.85rem"></i>
-                  </button>
-                </div>
-
-                <!-- แถบสัดส่วนของแถวนี้เทียบกับยอดรวมรายรับ -->
-                <div class="ledger-share-track mt-2" *ngIf="liveRevenue > 0 && rowAmount(row) > 0">
-                  <div class="ledger-share-fill bg-revenue" [style.width.%]="rowShare(row, liveRevenue)"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- เพิ่มรายการ -->
-            <button type="button" (click)="addRevenueRow()"
-              class="btn btn-outline-success border-dashed rounded-3 py-2 w-100 small fw-bold"
-              style="border-style:dashed !important">
-              <i class="bi bi-plus-lg me-1"></i>เพิ่มรายการรายรับ
-            </button>
-
-            <!-- Summary Footer ในโหมดแก้ไข -->
-            <div class="card bg-success bg-opacity-10 border-0 rounded-3 p-3 mt-3">
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="fw-bold text-success">รวมรายรับ</span>
-                <span class="fw-bold text-success fs-5">฿{{ liveRevenue | number }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Body: View Mode (ภาพที่ 2) -->
-          <div *ngIf="mode === 'view'">
-            <div class="table-responsive">
-              <table class="table align-middle mb-0">
-                <thead class="table-light text-muted small">
-                  <tr>
-                    <th class="ps-4">หมวดหมู่</th>
-                    <th>เดือนที่</th>
-                    <th>หมายเหตุ</th>
-                    <th class="text-end pe-4">จำนวนเงิน (฿)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let item of getRevenues()">
-                    <td class="ps-4 fw-bold">
-                      {{ getCategoryName(item.category_id) }}
-                      <!-- FR03-4: หมวดประโยชน์ทางอ้อม โชว์ที่มาของตัวเลข (ปริมาณ × อัตรา) -->
-                      <small class="text-muted d-block fw-normal" *ngIf="item.unit_qty != null">
-                        {{ item.unit_qty | number }} × ฿{{ item.unit_cost | number }}
-                      </small>
-                    </td>
-                    <td class="text-muted small">เดือนที่ {{ item.period_index }}</td>
-                    <td class="text-muted">{{ item.note || '-' }}</td>
-                    <td class="text-end fw-bold text-success pe-4">฿{{ item.total_value | number }}</td>
-                  </tr>
-                  <tr *ngIf="getRevenues().length === 0">
-                    <td colspan="4" class="text-center text-muted py-4">ยังไม่มีรายรับ</td>
-                  </tr>
-                </tbody>
-                <tfoot *ngIf="getRevenues().length > 0">
-                  <tr class="table-success">
-                    <td colspan="3" class="ps-4 fw-bold">รวมรายรับ</td>
-                    <td class="text-end fw-bold pe-4">฿{{ totalEstRevenue | number }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-
-      <!-- ==================== รายจ่าย ==================== -->
-      <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-          <!-- Card Header -->
-          <div class="card-header bg-danger bg-opacity-10 border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 text-danger">
-              <i class="bi bi-arrow-down-circle-fill me-2"></i>รายจ่าย
-            </h6>
-            <span *ngIf="mode === 'edit'" class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3">
-              แก้ไขรายจ่าย
-            </span>
-          </div>
-
-          <!-- Body: Edit Mode -->
-          <div *ngIf="mode === 'edit'" class="p-3 p-md-4">
-            <!-- Table Rows -->
-            <div class="d-flex flex-column gap-2 mb-3">
-              <div class="ledger-row-card is-expense rounded-3 p-2 p-md-3" *ngFor="let row of expenseRows; let i = index">
-                <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3">
-                  <span class="ledger-index bg-expense">{{ i + 1 }}</span>
-
-                  <div class="ledger-row-field-category">
-                    <label class="form-label small text-muted mb-1">หมวดหมู่</label>
-                    <select class="form-select form-select-sm rounded-3 bg-light border-1"
-                      [(ngModel)]="row.category_id" (ngModelChange)="onCategoryChange(row)">
-                      <option *ngFor="let c of expenseCategories" [value]="c.category_id">{{ c.category_name }}</option>
-                    </select>
-                  </div>
-
-                  <!-- FR03-2: เลือกงวด/เดือนแทนการกรอกวันที่เอง -->
-                  <div class="ledger-row-field-date">
-                    <label class="form-label small text-muted mb-1">เดือนที่</label>
-                    <select class="form-select form-select-sm rounded-3 bg-light border-1" [(ngModel)]="row.period_index">
-                      <option *ngFor="let p of periods" [ngValue]="p">เดือนที่ {{ p }}</option>
-                    </select>
-                  </div>
-
-                  <div class="ledger-row-field-amount" *ngIf="!isQtyRow(row)">
-                    <label class="form-label small text-muted mb-1">จำนวน (฿)</label>
-                    <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold text-danger"
-                      [(ngModel)]="row.total_value" placeholder="0" min="0">
-                  </div>
-
-                  <ng-container *ngIf="isQtyRow(row)">
-                    <div class="ledger-row-field-amount">
-                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.unit_label }}</label>
-                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
-                        [(ngModel)]="row.unit_qty" placeholder="0" min="0">
-                    </div>
-                    <div class="ledger-row-field-amount">
-                      <label class="form-label small text-muted mb-1">{{ categoryOf(row)?.rate_label }}</label>
-                      <input type="number" class="form-control form-control-sm rounded-3 bg-light border-1 text-end fw-bold"
-                        [(ngModel)]="row.unit_cost" placeholder="0" min="0">
-                    </div>
-                    <div class="ledger-row-field-amount">
-                      <label class="form-label small text-muted mb-1">มูลค่าที่ตีได้ (฿)</label>
-                      <div class="form-control form-control-sm rounded-3 border-1 text-end fw-bold text-danger bg-danger bg-opacity-10">
-                        ฿{{ rowAmount(row) | number }}
-                      </div>
-                    </div>
-                  </ng-container>
-
-                  <div class="ledger-row-note">
-                    <label class="form-label small text-muted mb-1">หมายเหตุ</label>
-                    <input type="text" class="form-control form-control-sm rounded-3 bg-light border-1"
-                      [(ngModel)]="row.note" placeholder="เพิ่มรายละเอียดเพิ่มเติม (ถ้ามี)...">
-                  </div>
-
-                  <button type="button" class="btn btn-sm btn-outline-danger rounded-circle border-0 p-1 ms-auto align-self-end align-self-md-center"
-                    (click)="removeExpenseRow(i)" title="ลบรายการ">
-                    <i class="bi bi-trash3" style="font-size:.85rem"></i>
-                  </button>
-                </div>
-
-                <!-- แถบสัดส่วนของแถวนี้เทียบกับยอดรวมรายจ่าย -->
-                <div class="ledger-share-track mt-2" *ngIf="liveExpense > 0 && rowAmount(row) > 0">
-                  <div class="ledger-share-fill bg-expense" [style.width.%]="rowShare(row, liveExpense)"></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- เพิ่มรายการ -->
-            <button type="button" (click)="addExpenseRow()"
-              class="btn btn-outline-danger border-dashed rounded-3 py-2 w-100 small fw-bold"
-              style="border-style:dashed !important">
-              <i class="bi bi-plus-lg me-1"></i>เพิ่มรายการรายจ่าย
-            </button>
-
-            <!-- Summary Footer ในโหมดแก้ไข -->
-            <div class="card bg-danger bg-opacity-10 border-0 rounded-3 p-3 mt-3">
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="fw-bold text-danger">รวมรายจ่าย</span>
-                <span class="fw-bold text-danger fs-5">฿{{ liveExpense | number }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Body: View Mode (ภาพที่ 2) -->
-          <div *ngIf="mode === 'view'">
-            <div class="table-responsive">
-              <table class="table align-middle mb-0">
-                <thead class="table-light text-muted small">
-                  <tr>
-                    <th class="ps-4">หมวดหมู่</th>
-                    <th>เดือนที่</th>
-                    <th>หมายเหตุ</th>
-                    <th class="text-end pe-4">จำนวนเงิน (฿)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let item of getExpenses()">
-                    <td class="ps-4 fw-bold">
-                      {{ getCategoryName(item.category_id) }}
-                      <small class="text-muted d-block fw-normal" *ngIf="item.unit_qty != null">
-                        {{ item.unit_qty | number }} × ฿{{ item.unit_cost | number }}
-                      </small>
-                    </td>
-                    <td class="text-muted small">เดือนที่ {{ item.period_index }}</td>
-                    <td class="text-muted">{{ item.note || '-' }}</td>
-                    <td class="text-end fw-bold text-danger pe-4">฿{{ item.total_value | number }}</td>
-                  </tr>
-                  <tr *ngIf="getExpenses().length === 0">
-                    <td colspan="4" class="text-center text-muted py-4">ยังไม่มีรายจ่าย</td>
-                  </tr>
-                </tbody>
-                <tfoot *ngIf="getExpenses().length > 0">
-                  <tr class="table-danger">
-                    <td colspan="3" class="ps-4 fw-bold">รวมรายจ่าย</td>
-                    <td class="text-end fw-bold pe-4">฿{{ totalEstExpense | number }}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-    </div>
-
-    <!-- ─── Action Bar ด้านล่าง (โหมดแก้ไข) ─────────────────────────────────── -->
-    <div *ngIf="mode === 'edit'" class="d-flex justify-content-end align-items-center gap-3 mt-3 mb-5">
-      <button type="button" (click)="cancelEdit()" [disabled]="isSaving"
-        class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-semibold">
-        <i class="bi bi-x-circle me-1"></i>ยกเลิก
-      </button>
-      <button type="button" (click)="saveEstimated()" [disabled]="isSaving"
-        class="btn rounded-pill px-5 py-2 fw-bold text-white shadow-sm"
-        style="background:linear-gradient(135deg,#1a6b3c,#28a745); border:none;">
-        <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-2"></span>
-        <i *ngIf="!isSaving" class="bi bi-floppy2 me-2"></i>
-        {{ isSaving ? 'กำลังบันทึก...' : 'บันทึก Estimated' }}
-      </button>
-    </div>
-
-    <!-- ─── CTA: บันทึก Actual (โหมดดูผล, เจ้าของเท่านั้น) ───────────────────── -->
-    <div *ngIf="isOwner && mode === 'view' && project.status !== 'Actual'"
-      class="card border-0 shadow-sm rounded-4 p-4 text-center mt-3"
-      style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9)">
-      <i class="bi bi-clipboard-data text-success" style="font-size:2.2rem"></i>
-      <h5 class="fw-bold mt-2 mb-1">พร้อมบันทึกผลจริงแล้วหรือยัง?</h5>
-      <p class="text-muted mb-3">เมื่อโครงการดำเนินการแล้ว บันทึกรายรับ-รายจ่ายจริงเพื่อเปรียบเทียบกับประมาณการ</p>
-      <div>
-        <button [routerLink]="['/user/actual-report', project.project_id]"
-          [queryParams]="{ mode: 'create' }"
-          class="btn rounded-pill px-4 py-2 fw-bold text-white shadow-sm"
-          style="background:linear-gradient(135deg,#1a6b3c,#28a745); border:none;">
-          <i class="bi bi-plus-circle me-2"></i>บันทึก Actual
+      <div class="d-flex justify-content-end align-items-center gap-3 mb-4">
+        <button type="button" (click)="cancelEdit()" [disabled]="isSaving" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-semibold">
+          <i class="bi bi-x-circle me-1"></i>ยกเลิก
+        </button>
+        <button type="button" (click)="saveEstimated()" [disabled]="isSaving" class="btn btn-brand rounded-pill px-5 py-2 fw-bold shadow-sm">
+          <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-2"></span>
+          <i *ngIf="!isSaving" class="bi bi-floppy2 me-2"></i>{{ isSaving ? 'กำลังบันทึก...' : 'บันทึกประมาณการ' }}
         </button>
       </div>
     </div>
 
+    <!-- ─── โหมดดูผล ───────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="mode === 'view' && analytics">
+      <!-- FR04-1: กระแสเงินสดรายเดือน + ยอดสะสม -->
+      <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 print-allow-break">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <h6 class="fw-bold mb-0"><i class="bi bi-cash-coin me-2 text-success"></i>กระแสเงินสดรายเดือน (Net Cash Flow)</h6>
+          <small class="text-muted">
+            <span *ngIf="shown?.paybackMonth != null">คืนทุนเดือนที่ {{ shown?.paybackMonth }}</span>
+            <span *ngIf="shown?.paybackMonth == null">ยังไม่คืนทุนภายในระยะเวลาโครงการ</span>
+          </small>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0 text-nowrap">
+            <thead class="table-light text-muted small">
+              <tr>
+                <th class="ps-4">เดือนที่</th>
+                <th class="text-end" *ngIf="counted.direct">รายได้โดยตรง</th>
+                <th class="text-end" *ngIf="counted.indirect">ผลประโยชน์ทางอ้อม</th>
+                <th class="text-end">ต้นทุน</th>
+                <th class="text-end">NCF</th>
+                <th class="text-end pe-4">กระแสเงินสดสะสม</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of analytics.monthly" [class.table-success]="shown?.paybackMonth === m.period">
+                <td class="ps-4 fw-bold">
+                  {{ m.period }}
+                  <i *ngIf="shown?.paybackMonth === m.period" class="bi bi-flag-fill text-success ms-1" title="เดือนที่คืนทุน"></i>
+                </td>
+                <td class="text-end text-success" *ngIf="counted.direct">฿{{ m.estimated.direct | number:'1.0-0' }}</td>
+                <td class="text-end indirect-text" *ngIf="counted.indirect">฿{{ m.estimated.indirect | number:'1.0-0' }}</td>
+                <td class="text-end text-danger">฿{{ m.estimated.expense | number:'1.0-0' }}</td>
+                <td class="text-end fw-bold" [ngClass]="m.estimated.ncf >= 0 ? 'text-success' : 'text-danger'">
+                  ฿{{ m.estimated.ncf | number:'1.0-0' }}
+                </td>
+                <td class="text-end fw-bold pe-4" [ngClass]="m.estimated.cumulative >= 0 ? 'text-dark' : 'text-danger'">
+                  ฿{{ m.estimated.cumulative | number:'1.0-0' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- รายการที่บันทึกไว้ แยกตามแหล่ง — ส่วนประโยชน์ทางอ้อมเป็นตารางแจกแจง ปริมาณ × อัตรา -->
+      <div class="d-flex flex-column gap-4 mb-4">
+        <ng-container *ngFor="let s of sources">
+          <app-ledger-section-view *ngIf="showSection(s, savedRows)"
+            [source]="s" [rows]="savedRows[s]" [categories]="allCategories"
+            [counted]="isCounted(s)" phaseLabel="ประมาณการ"></app-ledger-section-view>
+        </ng-container>
+      </div>
+
+      <!-- CTA: บันทึกผลจริง (เจ้าของเท่านั้น) -->
+      <div *ngIf="isOwner && project.status !== 'Actual' && !isLockedStatus && ledger.length > 0"
+        class="card border-0 shadow-sm rounded-4 p-4 text-center mt-3 no-print"
+        style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9)">
+        <i class="bi bi-clipboard-data text-success" style="font-size:2.2rem"></i>
+        <h5 class="fw-bold mt-2 mb-1">พร้อมบันทึกผลจริงแล้วหรือยัง?</h5>
+        <p class="text-muted mb-3">เมื่อโครงการเริ่มดำเนินการ บันทึกผลประโยชน์และต้นทุนจริงเพื่อเปรียบเทียบกับประมาณการ</p>
+        <div>
+          <button [routerLink]="['/user/actual-report', project.project_id]" [queryParams]="{ mode: 'create' }"
+            class="btn btn-brand rounded-pill px-4 py-2 fw-bold shadow-sm">
+            <i class="bi bi-plus-circle me-2"></i>บันทึก Actual
+          </button>
+        </div>
+      </div>
+    </ng-container>
   </div>
 </div>

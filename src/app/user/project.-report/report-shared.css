@@ -1,0 +1,75 @@
+/* สไตล์ที่หน้า Estimated Report และ Actual Report ใช้ร่วมกัน
+   (ส่วนของฟอร์ม/ตารางรายการอยู่ที่ shared/ledger-sections.css) */
+
+/* KPI card icon chips — สีตามความหมาย (เขียว=ผลตอบแทนดี, แดง=ต้นทุน, ฟ้า=เวลา, เทา=ข้อมูลทั่วไป) */
+.kpi-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kpi-icon-success { background: rgba(25, 135, 84, 0.1); color: #198754; }
+.kpi-icon-danger { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+.kpi-icon-info { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
+.kpi-icon-neutral { background: rgba(108, 117, 125, 0.1); color: #6c757d; }
+
+.kpi-label { font-size: 0.68rem; }
+.kpi-value { font-size: 1.3rem; }
+.kpi-value-lg { font-size: 1.5rem; }
+
+.table th { font-weight: 600; letter-spacing: 0.3px; }
+.table td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+
+.btn-brand {
+  background: linear-gradient(135deg, #1a6b3c, #28a745);
+  border: none;
+  color: #fff;
+}
+.btn-brand:hover, .btn-brand:focus { color: #fff; filter: brightness(1.05); }
+
+.preview-status { min-height: 1.25rem; }
+
+/* หัวกระดาษและรูปกราฟสำหรับพิมพ์ — ซ่อนไว้บนจอ */
+.print-header { display: none; }
+.chart-print-only { display: none; }
+
+@media print {
+  .btn, button, .no-print { display: none !important; }
+  .print-header { display: block !important; }
+
+  /* ตอนพิมพ์ใช้รูปแทน canvas (canvas วาดใหม่ไม่ทันตอนเปลี่ยนเป็น layout กระดาษ)
+     ซ่อนเฉพาะกล่องที่มีรูปแทนแล้วเท่านั้น */
+  .chart-screen-only.has-print-image { display: none !important; }
+  .chart-print-only {
+    display: block !important;
+    width: 100%;
+    height: auto;
+    max-height: 90mm;
+    object-fit: contain;
+  }
+
+  /* การ์ดเรียงต่อกันแนวตั้งบนกระดาษ จะได้ไม่ถูกบีบจนอ่านไม่ออก — ยกเว้นการ์ด KPI ที่เล็กอยู่แล้ว */
+  .row:not(.kpi-row) > [class*='col-'] {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+  .kpi-row > [class*='col-'] {
+    width: 33.333% !important;
+    max-width: 33.333% !important;
+    flex: 0 0 33.333% !important;
+  }
+  .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+}
+
+.indirect-text { color: #0f7b8a; }
+
+.summary-hero { background: linear-gradient(135deg, #1a6b3c, #28a745); }
+.table-group-row td { background: #f8f9fa !important; color: #495057; }
+
+@media print {
+  .summary-hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

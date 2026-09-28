@@ -1,0 +1,98 @@
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden section-card print-allow-break" [ngClass]="'tone-' + meta.tone">
+  <div class="card-header section-header border-0 py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h6 class="fw-bold mb-0 section-title">
+      <i class="bi me-2" [ngClass]="meta.icon"></i>{{ meta.title }}
+      <small class="fw-normal text-muted ms-1">{{ meta.subtitle }}</small>
+      <span *ngIf="phaseLabel" class="badge rounded-pill bg-white text-muted border ms-2">{{ phaseLabel }}</span>
+    </h6>
+    <span *ngIf="!counted" class="badge rounded-pill bg-warning text-dark">
+      <i class="bi bi-exclamation-triangle me-1"></i>ไม่นับตามประเภทโครงการ
+    </span>
+  </div>
+
+  <div class="table-responsive">
+    <!-- ผลประโยชน์ทางอ้อม: ตารางแจกแจงที่มาของมูลค่า (ปริมาณ × อัตรา) -->
+    <table *ngIf="source === 'indirect'" class="table align-middle mb-0 small-table">
+      <thead class="table-light text-muted small">
+        <tr>
+          <th class="ps-4">ประเภทผลประโยชน์</th>
+          <th>ช่วงเวลา</th>
+          <th class="text-end">ปริมาณ/เดือน</th>
+          <th class="text-end">อัตราต่อหน่วย</th>
+          <th class="text-end">มูลค่า/เดือน</th>
+          <th class="text-end">เทียบรายปี</th>
+          <th class="text-end pe-4">รวมตามช่วงเวลา</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows">
+          <td class="ps-4">
+            <div class="fw-bold">{{ categoryName(row) }}</div>
+            <small class="text-muted" *ngIf="row.note">{{ row.note }}</small>
+          </td>
+          <td class="text-muted small text-nowrap">{{ period(row) }}<br>({{ months(row) }} เดือน)</td>
+          <td class="text-end text-nowrap">
+            <ng-container *ngIf="hasQty(row)">
+              {{ row.unit_qty | number:'1.0-2' }}
+              <small class="text-muted d-block">{{ categoryOf(row)?.unit_label }}</small>
+            </ng-container>
+            <span *ngIf="!hasQty(row)" class="text-muted">—</span>
+          </td>
+          <td class="text-end text-nowrap">
+            <ng-container *ngIf="hasQty(row)">
+              ฿{{ row.unit_cost | number:'1.0-2' }}
+              <small class="text-muted d-block">{{ categoryOf(row)?.rate_label }}</small>
+            </ng-container>
+            <span *ngIf="!hasQty(row)" class="text-muted">—</span>
+          </td>
+          <td class="text-end fw-bold text-nowrap">฿{{ monthly(row) | number:'1.0-2' }}</td>
+          <td class="text-end text-nowrap">฿{{ annual(row) | number:'1.0-2' }}</td>
+          <td class="text-end fw-bold pe-4 text-nowrap row-total">฿{{ total(row) | number:'1.0-2' }}</td>
+        </tr>
+        <tr *ngIf="rows.length === 0">
+          <td colspan="7" class="text-center text-muted py-4">ยังไม่มีรายการ</td>
+        </tr>
+      </tbody>
+      <tfoot *ngIf="rows.length > 0">
+        <tr class="section-foot">
+          <td colspan="6" class="ps-4 fw-bold">รวม{{ meta.title }}</td>
+          <td class="text-end fw-bold pe-4 text-nowrap">฿{{ sectionTotal | number:'1.0-2' }}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- รายได้โดยตรง / ต้นทุน: ยอดเงินต่อเดือน × จำนวนเดือน -->
+    <table *ngIf="source !== 'indirect'" class="table align-middle mb-0 small-table">
+      <thead class="table-light text-muted small">
+        <tr>
+          <th class="ps-4">หมวดหมู่</th>
+          <th>ช่วงเวลา</th>
+          <th class="text-end">ยอดต่อเดือน</th>
+          <th class="text-end">จำนวนเดือน</th>
+          <th class="text-end pe-4">รวม</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows">
+          <td class="ps-4">
+            <div class="fw-bold">{{ categoryName(row) }}</div>
+            <small class="text-muted" *ngIf="row.note">{{ row.note }}</small>
+          </td>
+          <td class="text-muted small text-nowrap">{{ period(row) }}</td>
+          <td class="text-end text-nowrap">฿{{ monthly(row) | number:'1.0-2' }}</td>
+          <td class="text-end">{{ months(row) }}</td>
+          <td class="text-end fw-bold pe-4 text-nowrap row-total">฿{{ total(row) | number:'1.0-2' }}</td>
+        </tr>
+        <tr *ngIf="rows.length === 0">
+          <td colspan="5" class="text-center text-muted py-4">ยังไม่มีรายการ</td>
+        </tr>
+      </tbody>
+      <tfoot *ngIf="rows.length > 0">
+        <tr class="section-foot">
+          <td colspan="4" class="ps-4 fw-bold">รวม{{ meta.title }}</td>
+          <td class="text-end fw-bold pe-4 text-nowrap">฿{{ sectionTotal | number:'1.0-2' }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>

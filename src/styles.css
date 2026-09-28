@@ -72,6 +72,13 @@
    overflow:hidden/auto ไว้ตายตัว (สำหรับให้ sidebar คงที่ตอนใช้งานจริงบนจอ) พอสั่งพิมพ์
    เบราว์เซอร์เลยตัดเนื้อหาที่ยาวเกินจอเดียวทิ้งไปเหมือนแค่แคปหน้าจอ ต้องคลายทั้งหมดนี้เป็น
    auto/visible ตอนพิมพ์ ให้เนื้อหาไหลต่อเป็นหลายหน้ากระดาษได้ตามจริง */
+/* ป้ายสถานะโครงการ (ใช้ทั้งหน้า Projects, Dashboard และรายงาน) */
+.status-badge { font-weight: 600; }
+.status-badge.status-planning { background: #fff3cd; color: #997404; }
+.status-badge.status-in_progress { background: #cfe2ff; color: #084298; }
+.status-badge.status-completed { background: #d1e7dd; color: #0f5132; }
+.status-badge.status-archived { background: #e2e3e5; color: #41464b; }
+
 @media print {
   .sidebar,
   header.navbar {

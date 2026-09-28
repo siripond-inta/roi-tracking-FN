@@ -1,0 +1,107 @@
+/* สีประจำแต่ละส่วน: เขียว = รายได้โดยตรง, ฟ้าอมเขียว = ผลประโยชน์ทางอ้อม, แดง = ต้นทุน */
+:host {
+  display: block;
+  --tone: #198754;
+  --tone-soft: rgba(25, 135, 84, 0.08);
+}
+
+.tone-direct { --tone: #198754; --tone-soft: rgba(25, 135, 84, 0.08); }
+.tone-indirect { --tone: #0f7b8a; --tone-soft: rgba(15, 123, 138, 0.08); }
+.tone-cost { --tone: #dc3545; --tone-soft: rgba(220, 53, 69, 0.07); }
+
+.section-header { background: var(--tone-soft); }
+.section-title { color: var(--tone); }
+.section-total { background: var(--tone-soft); color: var(--tone); }
+.section-foot td { background: var(--tone-soft) !important; color: var(--tone); }
+.row-total { color: var(--tone); }
+
+.table th { font-weight: 600; letter-spacing: 0.3px; }
+.small-table td { padding-top: 0.7rem; padding-bottom: 0.7rem; }
+
+/* ─── แถวรายการในโหมดแก้ไข ─── */
+.ledger-row-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 4px solid var(--tone);
+  transition: box-shadow 0.15s ease;
+}
+.ledger-row-card:hover { box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.06); }
+
+.ledger-index {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--tone);
+}
+
+.field-category { flex: 0 0 230px; min-width: 0; }
+.field-period { flex: 0 0 105px; }
+.field-amount { flex: 0 0 150px; }
+.field-qty { flex: 0 0 160px; min-width: 0; }
+.field-note { flex: 1 1 180px; min-width: 150px; }
+.times-sign { color: #6c757d; font-weight: 700; padding-top: 1.4rem; }
+
+.amount-input { color: var(--tone); }
+.computed-value { background: var(--tone-soft); color: var(--tone); border-color: transparent; }
+
+.form-select-sm, .form-control-sm { font-size: 0.875rem; padding: 0.4rem 0.6rem; }
+.form-select-sm:focus, .form-control-sm:focus {
+  box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.15);
+  border-color: #198754;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+.add-row-btn {
+  color: var(--tone);
+  border: 1.5px dashed var(--tone);
+  background: transparent;
+}
+.add-row-btn:hover { background: var(--tone-soft); color: var(--tone); }
+
+.ledger-share-track { height: 4px; border-radius: 2px; background: rgba(0, 0, 0, 0.06); overflow: hidden; }
+.ledger-share-fill { height: 100%; border-radius: 2px; background: var(--tone); transition: width 0.25s ease; }
+
+@media (max-width: 767.98px) {
+  .field-category, .field-amount, .field-note { flex: 1 1 100%; }
+  .field-period { flex: 1 1 calc(50% - 0.5rem); }
+  .field-qty { flex: 1 1 calc(50% - 1.25rem); }
+}
+
+/* ─── สรุปองค์ประกอบผลประโยชน์ ─── */
+.count-chip { display: inline-flex; align-items: center; gap: 0.2rem; margin-left: 0.35rem; color: #198754; font-weight: 600; }
+.count-chip.off { color: #adb5bd; text-decoration: line-through; font-weight: 400; }
+
+.composition-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: rgba(0, 0, 0, 0.06); }
+.composition-bar .seg { height: 100%; }
+.seg-direct { background: #198754; }
+.seg-indirect { background: #0f7b8a; }
+
+.composition-box { border: 1px solid rgba(0, 0, 0, 0.06); }
+.box-direct { background: rgba(25, 135, 84, 0.07); color: #146c43; }
+.box-indirect { background: rgba(15, 123, 138, 0.07); color: #0b5f6b; }
+.composition-box.muted { background: #f8f9fa; color: #adb5bd; }
+
+@media print {
+  /* กระดาษ A4 แคบกว่าจอ — ตารางแจกแจง 7 คอลัมน์ต้องย่อตัวอักษรและให้ตัดบรรทัดได้ ไม่งั้นคอลัมน์ขวาถูกตัดหาย */
+  .table-responsive { overflow: visible !important; }
+  .small-table { font-size: 9.5pt; table-layout: auto; width: 100%; }
+  .small-table th, .small-table td { padding: 0.35rem 0.4rem !important; }
+  .small-table .text-nowrap { white-space: normal !important; }
+  .small-table td:first-child { min-width: 34mm; }
+  .small-table small { font-size: 8pt; }
+
+  .section-card, .benefit-summary { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+  .section-header, .section-foot td, .composition-box, .composition-bar .seg {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

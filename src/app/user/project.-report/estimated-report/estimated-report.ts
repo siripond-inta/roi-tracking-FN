@@ -1,35 +1,41 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { Project, ProjectLedger } from '../../../models/roi-tracking-model';
+import { PROJECT_STATUS_LABELS, Project, ProjectLedger } from '../../../models/roi-tracking-model';
 import { ProjectService } from '../../../services/project.service';
 import { AuthService } from '../../../services/auth.service';
 import { PageHeaderService } from '../../../services/page-header.service';
 import { CategoryService, Category } from '../../../services/category.service';
-import { AnalyticsService, ProjectAnalytics } from '../../../services/analytics.service';
-import { HttpClient } from '@angular/common/http';
+import {
+  AnalyticsService,
+  BenefitSource,
+  PhaseSummary,
+  ProjectAnalytics,
+} from '../../../services/analytics.service';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 import {
   LedgerRow,
-  findCategory,
-  isQtyBased,
-  periodOptions,
-  rowTotal,
-  sumRows,
-  toPayload,
+  LedgerRowsBySource,
+  SOURCE_ORDER,
+  blankRow,
+  categoriesForSource,
+  groupLedgers,
+  splitBySource,
 } from '../ledger-row.util';
+import { LedgerDraft } from '../ledger-draft';
+import { BenefitSummary, LedgerSectionEditor, LedgerSectionView } from '../shared/ledger-sections';
+import { KpiCards } from '../shared/kpi-cards';
 
 export type { LedgerRow };
 
 @Component({
   selector: 'app-estimated-report',
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, LedgerSectionEditor, LedgerSectionView, BenefitSummary, KpiCards],
   templateUrl: './estimated-report.html',
-  styleUrl: './estimated-report.css',
+  styleUrl: '../report-shared.css',
 })
-export class EstimatedReport implements OnInit {
+export class EstimatedReport implements OnInit, OnDestroy {
   project?: Project;
   ledger: ProjectLedger[] = [];
   isLoading = false;
@@ -39,142 +45,70 @@ export class EstimatedReport implements OnInit {
   isPublic = false;
   isOwner = false; // false = กำลังดูโปรเจกต์ของคนอื่นผ่านหน้า Community (read-only)
 
-  // แถวสำหรับกรอกข้อมูลแยก 2 ฝั่ง
-  revenueRows: LedgerRow[] = [];
-  expenseRows: LedgerRow[] = [];
-
-  // ─── KPI Metrics — คำนวณโดย backend ทั้งหมด (FR04) ────────────────────────────
+  // ─── ผลการคำนวณ — มาจาก backend ทั้งหมด (FR04) ───────────────────────────────
   analytics?: ProjectAnalytics;
-  totalEstRevenue = 0;
-  totalEstExpense = 0;
-  estNetProfit = 0;
-  estROI = 0;
-  estPaybackMonths: number | null = null;
-
-  // ─── หมวดหมู่ (ดึงจาก database ผ่าน API) ────────────────────────────────────
   allCategories: Category[] = [];
-  get revenueCategories(): Category[] {
-    return this.allCategories.filter(c => c.is_inflow);
-  }
-  get expenseCategories(): Category[] {
-    return this.allCategories.filter(c => !c.is_inflow);
-  }
+  savedRows: LedgerRowsBySource = { direct: [], indirect: [], cost: [] };
+  draft?: LedgerDraft;
 
-  // ─── ตัวช่วยของฟอร์มรายแถว (ใช้ร่วมกับหน้า Actual Report) ──────────────────
-  get periods(): number[] {
-    return periodOptions(this.project?.duration_months);
-  }
-
-  categoryOf(row: LedgerRow): Category | undefined {
-    return findCategory(this.allCategories, row.category_id);
-  }
-
-  // FR03-4: หมวดประโยชน์ทางอ้อมกรอกเป็น "ปริมาณ × อัตรา" แทนยอดเงินตรงๆ
-  isQtyRow(row: LedgerRow): boolean {
-    return isQtyBased(this.categoryOf(row));
-  }
-
-  rowAmount(row: LedgerRow): number {
-    return rowTotal(row, this.allCategories);
-  }
-
-  // เปลี่ยนหมวดหมู่แล้วรูปแบบการกรอกอาจเปลี่ยน (ยอดเงิน ↔ ปริมาณ×อัตรา)
-  // สำคัญ: ต้องไม่ทำให้ยอดที่กรอกไว้แล้วหายไป — เก็บยอดเดิมไว้เสมอ ผู้ใช้จะได้ไม่เสียข้อมูล
-  // เพราะเผลอเลือกหมวดผิดแล้วเลือกกลับ (แถวที่ยอดเป็น 0 จะถูกข้ามตอนบันทึกด้วย)
-  onCategoryChange(row: LedgerRow): void {
-    const previousAmount = this.rowAmount(row);
-    if (this.isQtyRow(row)) {
-      // ยังไม่ต้องล้าง total_value — rowTotal จะใช้ยอดเดิมไปก่อนจนกว่าจะกรอกปริมาณ/อัตรา
-      row.total_value = previousAmount;
-    } else {
-      // กลับมาเป็นหมวดยอดเงิน: ย้ายยอดที่คำนวณได้จาก ปริมาณ×อัตรา มาเป็นยอดเงินตรงๆ
-      row.unit_qty = null;
-      row.unit_cost = null;
-      row.total_value = previousAmount;
-    }
-  }
-
-  // ─── Real-time Calculations (คำนวณสดอัตโนมัติขณะกรอก) ───────────────────────
-  get liveRevenue(): number {
-    return sumRows(this.revenueRows, this.allCategories);
-  }
-
-  get liveExpense(): number {
-    return sumRows(this.expenseRows, this.allCategories);
-  }
-
-  get liveNet(): number {
-    return this.liveRevenue - this.liveExpense;
-  }
-
-  get liveROI(): number {
-    if (this.liveExpense <= 0) return 0;
-    return ((this.liveRevenue - this.liveExpense) / this.liveExpense) * 100;
-  }
-
-  // FR04-3: ระยะเวลาคืนทุน = เดือนแรกที่กระแสเงินสดสะสม >= เงินลงทุนเริ่มต้น
-  // (คำนวณสดจากแถวที่กำลังกรอก ให้ผู้ใช้เห็นผลทันทีก่อนกดบันทึก — ตรรกะเดียวกับฝั่ง backend)
-  get livePaybackMonths(): number | null {
-    const initialBudget = Number(this.project?.initial_budget || 0);
-    if (initialBudget <= 0) return null;
-
-    let cumulative = 0;
-    for (const period of this.periods) {
-      const revenue = sumRows(
-        this.revenueRows.filter((r) => r.period_index === period),
-        this.allCategories
-      );
-      const expense = sumRows(
-        this.expenseRows.filter((r) => r.period_index === period),
-        this.allCategories
-      );
-      cumulative += revenue - expense;
-      if (cumulative >= initialBudget) return period;
-    }
-    return null;
-  }
-
-  // FR04-4: สถานะคุ้มค่า/ไม่คุ้มค่า เทียบ ROI กับเป้าหมายของโครงการ
-  get targetRoi(): number | null {
-    return this.project?.target_roi_percent ?? null;
-  }
-
-  get isWorthwhile(): boolean | null {
-    if (this.targetRoi == null) return null;
-    return this.displayedROI >= this.targetRoi;
-  }
-
-  // ตัวเลขสรุปที่จะแสดงบน 6 การ์ดด้านบน (สลับระหว่างค่าสดในโหมดแก้ไข กับค่าที่บันทึกในโหมดดูผล)
-  get displayedRevenue(): number {
-    return this.mode === 'edit' ? this.liveRevenue : this.totalEstRevenue;
-  }
-
-  get displayedExpense(): number {
-    return this.mode === 'edit' ? this.liveExpense : this.totalEstExpense;
-  }
-
-  get displayedNet(): number {
-    return this.mode === 'edit' ? this.liveNet : this.estNetProfit;
-  }
-
-  get displayedROI(): number {
-    return this.mode === 'edit' ? this.liveROI : this.estROI;
-  }
-
-  get displayedPayback(): number | null {
-    return this.mode === 'edit' ? this.livePaybackMonths : this.estPaybackMonths;
-  }
+  readonly sources = SOURCE_ORDER;
+  readonly statusLabels = PROJECT_STATUS_LABELS;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private projectService: ProjectService,
-    private authService: AuthService,
+    public authService: AuthService,
     private pageHeader: PageHeaderService,
     private categoryService: CategoryService,
-    private analyticsService: AnalyticsService,
-    private http: HttpClient
+    private analyticsService: AnalyticsService
   ) {}
+
+  // ─── ค่าที่แสดงบนการ์ดสรุป: โหมดแก้ไขใช้ผลพรีวิวจากรายการที่กำลังกรอก ────────────
+  get shownAnalytics(): ProjectAnalytics | undefined {
+    return this.mode === 'edit' ? (this.draft?.preview ?? this.analytics) : this.analytics;
+  }
+
+  get shown(): PhaseSummary | undefined {
+    return this.shownAnalytics?.summary.estimated;
+  }
+
+  get counted(): { direct: boolean; indirect: boolean } {
+    return this.analytics?.summary.countedSources ?? { direct: true, indirect: true };
+  }
+
+  get targetRoi(): number | null {
+    return this.analytics?.summary.targetRoi ?? null;
+  }
+
+  // FR04-4: หน้านี้เทียบเป้าหมายกับ ROI ประมาณการเสมอ (หน้า Actual เทียบกับผลจริง)
+  get isWorthwhile(): boolean | null {
+    if (this.targetRoi == null || !this.shown) return null;
+    return this.shown.roi >= this.targetRoi;
+  }
+
+  get hasActualData(): boolean {
+    return !!this.analytics?.summary.hasActualData;
+  }
+
+  get isLockedStatus(): boolean {
+    const s = this.project?.project_status;
+    return s === 'completed' || s === 'archived';
+  }
+
+  // แก้ประมาณการได้เฉพาะเจ้าของ ก่อนเริ่มบันทึกผลจริง และโครงการยังไม่สิ้นสุด
+  get isEditable(): boolean {
+    return this.isOwner && !this.hasActualData && !this.isLockedStatus;
+  }
+
+  // ส่วนที่ประเภทโครงการไม่นับ ยังแสดงอยู่ถ้ามีข้อมูลค้างไว้ (พร้อมคำเตือน) ให้ผู้ใช้ลบออกได้
+  isCounted(source: BenefitSource): boolean {
+    return source === 'cost' || this.counted[source];
+  }
+
+  showSection(source: BenefitSource, rows: LedgerRowsBySource | undefined): boolean {
+    return this.isCounted(source) || (rows?.[source].length ?? 0) > 0;
+  }
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -185,208 +119,133 @@ export class EstimatedReport implements OnInit {
       project: this.projectService.getProjectById(id),
       ledger: this.projectService.getLedgersByProjectId(id),
       categories: this.categoryService.getCategories(),
-      analytics: this.analyticsService.getProjectAnalytics(id)
+      analytics: this.analyticsService.getProjectAnalytics(id),
     }).subscribe({
       next: (result) => {
         this.allCategories = result.categories;
-        this.analytics = result.analytics;
         this.project = result.project;
         this.isPublic = !!result.project.is_public;
         this.isOwner = result.project.user_id === this.authService.currentUser()?.userId;
         this.pageHeader.set('Estimated Report', result.project.project_name);
-        this.ledger = result.ledger.filter(l => l.phase === 'Estimated');
-        this.calculateMetrics();
+        this.applyData(result.ledger, result.analytics);
         this.isLoading = false;
 
-        // ถ้ามาด้วย mode=create หรือ mode=edit หรือยังไม่มี ledger ให้เข้าสู่โหมดแก้ไขทันที
-        // (เฉพาะเจ้าของเท่านั้น — ผู้ที่เข้ามาดูผ่านหน้า Community ต้องเห็นแค่โหมดดูอย่างเดียว)
-        if (this.isOwner && (queryMode === 'create' || queryMode === 'edit' || this.ledger.length === 0)) {
+        this.draft = new LedgerDraft(this.analyticsService, id, 'Estimated', () => this.allCategories);
+
+        // มาจากการสร้างโครงการใหม่ / กดแก้ไข / ยังไม่มีข้อมูล → เข้าโหมดแก้ไขทันที (เฉพาะเจ้าของ)
+        if (this.isEditable && (queryMode === 'create' || queryMode === 'edit' || this.ledger.length === 0)) {
           this.startEdit();
-        } else {
-          this.mode = 'view';
         }
       },
       error: () => {
         this.isLoading = false;
         Swal.fire({ icon: 'error', title: 'โหลดข้อมูลไม่สำเร็จ', text: 'กรุณาลองใหม่อีกครั้ง' });
-      }
+      },
     });
   }
 
-  // ─── Edit / View Modes ─────────────────────────────────────────────────────
-  private toEditableRow(l: ProjectLedger, typeId: number): LedgerRow {
-    const qtyBased = l.unit_qty != null && l.unit_cost != null;
-    return {
-      ledger_id: l.ledger_id,
-      category_id: String(l.category_id),
-      period_index: Number(l.period_index) || 1,
-      total_value: qtyBased ? null : Number(l.total_value) || 0,
-      unit_qty: qtyBased ? Number(l.unit_qty) : null,
-      unit_cost: qtyBased ? Number(l.unit_cost) : null,
-      note: l.note || '',
-      type_id: typeId
-    };
+  ngOnDestroy(): void {
+    this.draft?.destroy();
   }
 
+  private applyData(ledgers: ProjectLedger[], analytics: ProjectAnalytics): void {
+    this.analytics = analytics;
+    if (this.project) {
+      this.project.project_status = analytics.project.project_status;
+      this.project.calculation_method = analytics.project.calculation_method;
+    }
+    this.ledger = ledgers.filter((l) => l.phase === 'Estimated');
+    this.savedRows = splitBySource(groupLedgers(this.ledger), this.allCategories);
+  }
+
+  // ─── Edit / View ───────────────────────────────────────────────────────────
   startEdit(): void {
-    const revs = this.ledger.filter(l => Number(l.type_id) === 2);
-    this.revenueRows = revs.length > 0
-      ? revs.map(l => this.toEditableRow(l, 2))
-      : [this.newBlankRevenueRow()];
-
-    const exps = this.ledger.filter(l => Number(l.type_id) === 1);
-    this.expenseRows = exps.length > 0
-      ? exps.map(l => this.toEditableRow(l, 1))
-      : [this.newBlankExpenseRow()];
-
+    if (!this.draft) return;
+    const duration = this.project?.duration_months ?? 12;
+    const copy = (rows: LedgerRow[]) => rows.map((r) => ({ ...r }));
+    const rows: LedgerRowsBySource = {
+      direct: copy(this.savedRows.direct),
+      indirect: copy(this.savedRows.indirect),
+      cost: copy(this.savedRows.cost),
+    };
+    // ส่วนที่นับตามประเภทโครงการแต่ยังว่าง เตรียมแถวว่างไว้ให้หนึ่งแถว
+    for (const source of SOURCE_ORDER) {
+      const first = categoriesForSource(this.allCategories, source)[0];
+      if (this.isCounted(source) && rows[source].length === 0 && first) {
+        rows[source].push(blankRow(first.category_id, duration));
+      }
+    }
+    this.draft.load(rows);
     this.mode = 'edit';
   }
 
   cancelEdit(): void {
     if (this.ledger.length === 0) {
-      // ยังไม่เคยบันทึกเลย ให้กลับไปหน้าโปรเจกต์
       this.router.navigate(['/user/projects']);
       return;
     }
     this.mode = 'view';
-    this.revenueRows = [];
-    this.expenseRows = [];
   }
 
-  // ─── Add / Remove Rows ─────────────────────────────────────────────────────
-  private newBlankRow(typeId: number, categoryId: string): LedgerRow {
-    return {
-      category_id: categoryId,
-      period_index: 1,
-      total_value: 0,
-      unit_qty: null,
-      unit_cost: null,
-      note: '',
-      type_id: typeId
-    };
-  }
-
-  newBlankRevenueRow(): LedgerRow {
-    return this.newBlankRow(2, this.revenueCategories[0]?.category_id || '');
-  }
-
-  newBlankExpenseRow(): LedgerRow {
-    return this.newBlankRow(1, this.expenseCategories[0]?.category_id || '');
-  }
-
-  // สัดส่วน (%) ของแถวนี้เทียบกับยอดรวมฝั่งเดียวกัน — ใช้แสดงแถบเล็กใต้แต่ละแถวในโหมดแก้ไข
-  rowShare(row: LedgerRow, total: number): number {
-    const v = this.rowAmount(row);
-    if (total <= 0 || v <= 0) return 0;
-    return Math.min(100, (v / total) * 100);
-  }
-
-  addRevenueRow(): void {
-    this.revenueRows.push(this.newBlankRevenueRow());
-  }
-
-  removeRevenueRow(index: number): void {
-    this.revenueRows.splice(index, 1);
-    if (this.revenueRows.length === 0) {
-      this.revenueRows.push(this.newBlankRevenueRow());
-    }
-  }
-
-  addExpenseRow(): void {
-    this.expenseRows.push(this.newBlankExpenseRow());
-  }
-
-  removeExpenseRow(index: number): void {
-    this.expenseRows.splice(index, 1);
-    if (this.expenseRows.length === 0) {
-      this.expenseRows.push(this.newBlankExpenseRow());
-    }
-  }
-
-  // ─── Save Estimated ────────────────────────────────────────────────────────
+  // ─── Save ──────────────────────────────────────────────────────────────────
   async saveEstimated(): Promise<void> {
-    const allRows = [...this.revenueRows, ...this.expenseRows];
-    // กรองแถวที่มีการกรอกจำนวนเงิน > 0 (หมวดแบบปริมาณคิดจาก qty × rate ให้แล้ว)
-    const validRows = allRows.filter(r => this.rowAmount(r) > 0);
+    if (!this.draft || !this.project) return;
+    const inputs = this.draft.inputs();
 
-    if (validRows.length === 0) {
+    if (inputs.length === 0) {
       Swal.fire({
         icon: 'warning',
         title: 'ไม่มีข้อมูล',
-        text: 'กรุณากรอกจำนวนเงินอย่างน้อย 1 รายการ (รายรับ หรือ รายจ่าย)',
-        confirmButtonColor: '#198754'
+        text: 'กรุณากรอกผลประโยชน์หรือต้นทุนอย่างน้อย 1 รายการ',
+        confirmButtonColor: '#198754',
       });
       return;
     }
 
     const confirm = await Swal.fire({
       icon: 'question',
-      title: 'ยืนยันการบันทึก Estimated?',
-      text: 'ข้อมูลประมาณการจะถูกบันทึก คุณสามารถกดปุ่ม "แก้ไข" ได้เสมอจนกว่าจะเริ่มบันทึก Actual',
+      title: 'ยืนยันการบันทึกประมาณการ?',
+      text: 'แก้ไขได้เสมอจนกว่าจะเริ่มบันทึกผลจริง (Actual)',
       showCancelButton: true,
       confirmButtonText: 'บันทึก',
       cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#198754'
+      confirmButtonColor: '#198754',
     });
     if (!confirm.isConfirmed) return;
 
     this.isSaving = true;
-    const projectId = this.project!.project_id;
-    const ledgersPayload = validRows.map(r => toPayload(r, this.allCategories, this.project?.created_at));
-
-    const isFirstSave = this.ledger.length === 0;
-
-    if (isFirstSave) {
-      this.http.post<any>(
-        `http://localhost:3000/api/projects/${projectId}/ledgers`,
-        { phase: 'Estimated', ledgers: ledgersPayload }
-      ).subscribe({
-        next: () => this.afterSave(),
-        error: (err) => this.handleSaveError(err)
-      });
-    } else {
-      this.http.put<any>(
-        `http://localhost:3000/api/projects/${projectId}/ledgers/estimated`,
-        { ledgers: ledgersPayload }
-      ).subscribe({
-        next: () => this.afterSave(),
-        error: (err) => this.handleSaveError(err)
-      });
-    }
-  }
-
-  private afterSave(): void {
-    this.isSaving = false;
-    Swal.fire({
-      icon: 'success',
-      title: 'บันทึกสำเร็จ!',
-      text: 'ข้อมูลประมาณการถูกบันทึกเรียบร้อยแล้ว',
-      timer: 1800,
-      showConfirmButton: false
-    });
-
-    const id = this.project!.project_id;
-    forkJoin({
-      ledger: this.projectService.getLedgersByProjectId(id),
-      analytics: this.analyticsService.getProjectAnalytics(id)
-    }).subscribe(({ ledger, analytics }) => {
-      this.ledger = ledger.filter(l => l.phase === 'Estimated');
-      this.analytics = analytics;
-      this.calculateMetrics();
-      this.mode = 'view';
-      this.revenueRows = [];
-      this.expenseRows = [];
+    const id = this.project.project_id;
+    this.projectService.replaceLedgerInputs(id, 'Estimated', inputs).subscribe({
+      next: () => {
+        forkJoin({
+          ledger: this.projectService.getLedgersByProjectId(id),
+          analytics: this.analyticsService.getProjectAnalytics(id),
+        }).subscribe(({ ledger, analytics }) => {
+          this.applyData(ledger, analytics);
+          this.isSaving = false;
+          this.mode = 'view';
+          Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', timer: 1600, showConfirmButton: false });
+        });
+      },
+      error: (err) => {
+        this.isSaving = false;
+        Swal.fire({
+          icon: 'error',
+          title: 'บันทึกไม่สำเร็จ',
+          text: err.error?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์',
+          confirmButtonColor: '#dc3545',
+        });
+      },
     });
   }
 
-  private handleSaveError(err: any): void {
-    this.isSaving = false;
-    Swal.fire({
-      icon: 'error',
-      title: 'บันทึกไม่สำเร็จ',
-      text: err.error?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์',
-      confirmButtonColor: '#dc3545'
-    });
+  // ─── พิมพ์ / บันทึกเป็น PDF ────────────────────────────────────────────────
+  printReport(): void {
+    window.print();
+  }
+
+  get today(): Date {
+    return new Date();
   }
 
   // ─── Visibility Toggle ─────────────────────────────────────────────────────
@@ -399,7 +258,7 @@ export class EstimatedReport implements OnInit {
       showCancelButton: true,
       confirmButtonText: 'ยืนยัน',
       cancelButtonText: 'ยกเลิก',
-      confirmButtonColor: '#198754'
+      confirmButtonColor: '#198754',
     });
     if (!result.isConfirmed) return;
 
@@ -410,36 +269,10 @@ export class EstimatedReport implements OnInit {
           icon: 'success',
           title: newState ? 'เปลี่ยนเป็นสาธารณะแล้ว' : 'เปลี่ยนเป็นส่วนตัวแล้ว',
           timer: 1500,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
       },
-      error: () => Swal.fire({ icon: 'error', title: 'ไม่สำเร็จ' })
+      error: (err) => Swal.fire({ icon: 'error', title: 'ไม่สำเร็จ', text: err.error?.message }),
     });
-  }
-
-  // ─── KPI (View Mode) — ใช้ตัวเลขที่ backend คำนวณให้ ไม่คำนวณซ้ำที่นี่ ─────────
-  private calculateMetrics(): void {
-    const est = this.analytics?.summary.estimated;
-    this.totalEstRevenue = est?.totalRevenue ?? 0;
-    this.totalEstExpense = est?.totalExpense ?? 0;
-    this.estNetProfit = est?.netProfit ?? 0;
-    this.estROI = est?.roi ?? 0;
-    this.estPaybackMonths = est?.paybackMonth ?? null;
-  }
-
-  getExpenses(): ProjectLedger[] {
-    return this.ledger.filter(l => Number(l.type_id) === 1);
-  }
-
-  getRevenues(): ProjectLedger[] {
-    return this.ledger.filter(l => Number(l.type_id) === 2);
-  }
-
-  get isEditable(): boolean {
-    return this.isOwner && this.project?.status !== 'Actual';
-  }
-
-  getCategoryName(id: string): string {
-    return this.allCategories.find(c => c.category_id === id)?.category_name || id;
   }
 }
