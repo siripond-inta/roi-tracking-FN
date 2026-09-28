@@ -136,6 +136,7 @@
               <th class="border-0 bg-light py-3">ROLE</th>
               <th class="border-0 bg-light py-3 text-center">PROJECTS</th>
               <th class="border-0 bg-light py-3">STATUS</th>
+              <th class="border-0 bg-light py-3">DATA</th>
               <th class="border-0 bg-light py-3 text-center">LAST LOGIN</th>
               <th class="border-0 bg-light py-3 pe-3 text-end">ACTIONS</th>
             </tr>
@@ -213,6 +214,7 @@
               <th class="border-0 bg-light py-3">TYPE</th>
               <th class="border-0 bg-light py-3">BUDGET</th>
               <th class="border-0 bg-light py-3">STATUS</th>
+              <th class="border-0 bg-light py-3">DATA</th>
               <th class="border-0 bg-light py-3 pe-3">VISIBILITY</th>
             </tr>
           </thead>
@@ -228,6 +230,11 @@
               </td>
               <td class="text-secondary" style="font-size: 0.85rem;">{{ prj.project_type || '-' }}</td>
               <td class="fw-bold text-dark">฿{{ prj.initial_budget | number }}</td>
+              <td>
+                <span *ngIf="prj.project_status" class="badge rounded-pill status-badge px-3 py-1" [ngClass]="'status-' + prj.project_status">
+                  {{ statusLabels[prj.project_status] }}
+                </span>
+              </td>
               <td>
                 <span class="badge rounded-pill px-3 py-1"
                   [ngClass]="prj.status === 'Actual' ? 'bg-success' : 'bg-light text-muted border'">
@@ -254,7 +261,10 @@
     <!-- ─── Categories table ──────────────────────────────────────────────── -->
     <div class="bg-white rounded-4 shadow-sm p-4 border-0" *ngIf="activeTab === 'categories'">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h5 class="fw-bold mb-0">Revenue / Expense Categories</h5>
+        <div>
+          <h5 class="fw-bold mb-0">Benefit / Cost Categories</h5>
+          <small class="text-muted">รายได้โดยตรง (REV) · ผลประโยชน์ทางอ้อม (BEN) · ต้นทุน (INV/OPC/ADC)</small>
+        </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <div class="d-flex align-items-center bg-light rounded-pill px-3 border" style="width: 240px; height: 40px;">
             <i class="bi bi-search text-muted small"></i>
@@ -275,6 +285,7 @@
               <th class="border-0 bg-light py-3 ps-3">NAME</th>
               <th class="border-0 bg-light py-3">TYPE</th>
               <th class="border-0 bg-light py-3">GROUP</th>
+              <th class="border-0 bg-light py-3 text-center">USED</th>
               <th class="border-0 bg-light py-3 pe-3 text-end">ACTIONS</th>
             </tr>
           </thead>
@@ -294,12 +305,15 @@
                   {{ cat.type_name }}
                 </span>
               </td>
-              <td class="text-secondary" style="font-size: 0.85rem;">{{ cat.category_group }}</td>
+              <td class="text-secondary" style="font-size: 0.85rem;">{{ groupLabel(cat.category_group) }}</td>
+              <td class="text-center text-secondary">{{ cat.usage_count }}</td>
               <td class="text-end pe-3">
                 <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 me-1" (click)="openEditCategory(cat)">
                   <i class="bi bi-pencil-square me-1"></i>แก้ไข
                 </button>
-                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" (click)="deleteCategory(cat)">
+                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" (click)="deleteCategory(cat)"
+                  [disabled]="(cat.usage_count ?? 0) > 0"
+                  [title]="(cat.usage_count ?? 0) > 0 ? 'ลบไม่ได้ — มีรายการใช้หมวดนี้อยู่' : 'ลบหมวดหมู่'">
                   <i class="bi bi-trash3 me-1"></i>ลบ
                 </button>
               </td>
@@ -430,42 +444,37 @@
       </div>
 
       <div class="mb-3">
-        <label class="form-label small fw-bold text-muted text-uppercase">ประเภท</label>
-        <select class="form-select rounded-3" [(ngModel)]="categoryForm.type_id">
-          <option [ngValue]="null" disabled>เลือกประเภท...</option>
-          <option *ngFor="let t of entryTypes" [ngValue]="t.type_id">
-            {{ t.type_name }} ({{ t.is_inflow ? 'รายรับ' : 'รายจ่าย' }})
-          </option>
-        </select>
-      </div>
-
-      <div class="mb-3">
         <label class="form-label small fw-bold text-muted text-uppercase">กลุ่ม (Category Group)</label>
-        <select class="form-select rounded-3" [(ngModel)]="categoryForm.category_group">
+        <select class="form-select rounded-3" [(ngModel)]="categoryForm.category_group"
+          [disabled]="categoryFormMode === 'edit' && categoryForm.usage_count > 0">
           <option value="" disabled>เลือกกลุ่ม...</option>
           <option *ngFor="let g of categoryGroups" [value]="g.value">{{ g.label }}</option>
         </select>
-        <small class="text-muted">รหัสหมวดหมู่จะถูกสร้างจากกลุ่มนี้ เช่น OPC001, BEN002</small>
+        <small class="text-muted d-block" *ngIf="selectedGroupHint">{{ selectedGroupHint }}</small>
+        <small class="text-muted d-block" *ngIf="categoryFormMode === 'create'">รหัสหมวดหมู่และประเภทรายรับ/รายจ่ายถูกกำหนดจากกลุ่มนี้อัตโนมัติ เช่น REV003, BEN005</small>
+        <small class="text-warning-emphasis d-block" *ngIf="categoryFormMode === 'edit' && categoryForm.usage_count > 0">
+          <i class="bi bi-lock-fill me-1"></i>มีรายการใช้หมวดนี้อยู่ {{ categoryForm.usage_count }} รายการ จึงเปลี่ยนกลุ่มไม่ได้
+        </small>
       </div>
 
-      <!-- FR03-4: หมวดประโยชน์ทางอ้อมที่ตีมูลค่าจาก ปริมาณ × อัตรา -->
-      <div class="border rounded-3 p-3 mb-4 bg-light">
+      <!-- FR03-4: ผลประโยชน์ทางอ้อมตีมูลค่าจาก ปริมาณ/เดือน × อัตรา — ชื่อหน่วยใช้เป็นหัวช่องกรอกในฟอร์ม -->
+      <div *ngIf="categoryForm.category_group === 'BEN'" class="border rounded-3 p-3 mb-4 bg-light">
         <div class="fw-bold small mb-1">
-          <i class="bi bi-calculator me-1 text-success"></i>คำนวณจากปริมาณ × อัตรา (ไม่บังคับ)
+          <i class="bi bi-calculator me-1 text-success"></i>สูตรตีมูลค่า: ปริมาณต่อเดือน × อัตราต่อหน่วย
         </div>
         <p class="text-muted small mb-3">
-          ใช้กับประโยชน์ทางอ้อม เช่น "ลดเวลาทำงาน" ที่คิดจากชั่วโมงที่ประหยัดได้ × อัตราค่าจ้าง —
-          ถ้าเว้นว่างไว้ หมวดนี้จะให้กรอกยอดเงินตรงๆ
+          ผู้ใช้แต่ละองค์กรกรอกตัวเลขของตัวเอง ระบบคูณเป็นมูลค่าบาทต่อเดือนให้ เช่น
+          ชั่วโมงที่ลดได้ต่อเดือน × อัตราค่าจ้างต่อชั่วโมง
         </p>
         <div class="mb-2">
-          <label class="form-label small fw-bold text-muted text-uppercase">ชื่อช่องปริมาณ</label>
+          <label class="form-label small fw-bold text-muted text-uppercase">ชื่อช่องปริมาณ <span class="text-danger">*</span></label>
           <input type="text" class="form-control form-control-sm rounded-3" [(ngModel)]="categoryForm.unit_label"
-            placeholder="เช่น ชั่วโมงที่ประหยัดได้ (ชม.)">
+            placeholder="เช่น ชั่วโมงที่ลดได้ต่อเดือน (ชม.)" maxlength="100">
         </div>
         <div>
-          <label class="form-label small fw-bold text-muted text-uppercase">ชื่อช่องอัตราต่อหน่วย</label>
+          <label class="form-label small fw-bold text-muted text-uppercase">ชื่อช่องอัตราต่อหน่วย <span class="text-danger">*</span></label>
           <input type="text" class="form-control form-control-sm rounded-3" [(ngModel)]="categoryForm.rate_label"
-            placeholder="เช่น อัตราค่าจ้าง (บาท/ชม.)">
+            placeholder="เช่น อัตราค่าจ้างต่อชั่วโมง (บาท)" maxlength="100">
         </div>
       </div>
 

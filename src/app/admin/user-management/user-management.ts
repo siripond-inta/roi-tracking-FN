@@ -2,7 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminService, AdminUser, AdminProject } from '../../services/admin.service';
-import { CategoryService, Category, EntryType } from '../../services/category.service';
+import { CategoryService, Category } from '../../services/category.service';
+import { CategoryGroup, PROJECT_STATUS_LABELS } from '../../models/roi-tracking-model';
 import { ProjectTypeService, ProjectType } from '../../services/project-type.service';
 import { ToastService } from '../../services/toast.service';
 import { forkJoin } from 'rxjs';
@@ -11,9 +12,9 @@ import Swal from 'sweetalert2';
 interface CategoryFormModel {
   category_id: string; // ใช้ภายในตอนแก้ไข (ระบุแถวที่จะ PUT) — ไม่ให้ admin กรอกหรือเห็นเอง
   category_name: string;
-  type_id: number | null;
-  category_group: '' | 'INV' | 'OPC' | 'ADC' | 'BEN';
-  // FR03-4: หมวดที่คิดจาก "ปริมาณ × อัตรา" ต้องระบุชื่อหน่วยทั้งคู่ (เว้นว่าง = กรอกยอดเงินตรงๆ)
+  category_group: '' | CategoryGroup;
+  usage_count: number; // มีข้อมูลใช้งานแล้วเปลี่ยนกลุ่มไม่ได้ (backend ตรวจซ้ำ)
+  // FR03-4: หมวดประโยชน์ทางอ้อม (BEN) ต้องระบุชื่อหน่วยทั้งคู่ — ใช้เป็นหัวช่องกรอกในฟอร์ม
   unit_label: string;
   rate_label: string;
 }
@@ -35,7 +36,6 @@ export class UserManagement implements OnInit {
   users: AdminUser[] = [];
   projects: AdminProject[] = [];
   categories: Category[] = [];
-  entryTypes: EntryType[] = [];
   projectTypes: ProjectType[] = [];
   isLoading = false;
 
@@ -48,7 +48,7 @@ export class UserManagement implements OnInit {
   showCategoryForm = false;
   categoryFormMode: 'create' | 'edit' = 'create';
   categoryForm: CategoryFormModel = {
-    category_id: '', category_name: '', type_id: null, category_group: '', unit_label: '', rate_label: ''
+    category_id: '', category_name: '', category_group: '', usage_count: 0, unit_label: '', rate_label: ''
   };
   isSavingCategory = false;
 
@@ -58,17 +58,30 @@ export class UserManagement implements OnInit {
   isSavingProjectType = false;
 
   readonly calculationMethods: { value: 'REVENUE' | 'COST_SAVING' | 'MIXED'; label: string }[] = [
-    { value: 'REVENUE', label: 'REVENUE — เน้นสร้างรายได้' },
-    { value: 'COST_SAVING', label: 'COST_SAVING — เน้นลดต้นทุน' },
-    { value: 'MIXED', label: 'MIXED — ทั้งเพิ่มรายได้และลดต้นทุน' },
+    { value: 'REVENUE', label: 'REVENUE — นับเฉพาะรายได้โดยตรง' },
+    { value: 'COST_SAVING', label: 'COST_SAVING — นับเฉพาะผลประโยชน์ทางอ้อม' },
+    { value: 'MIXED', label: 'MIXED — นับทั้งรายได้โดยตรงและผลประโยชน์ทางอ้อม' },
   ];
 
-  readonly categoryGroups: { value: 'INV' | 'OPC' | 'ADC' | 'BEN'; label: string }[] = [
-    { value: 'INV', label: 'INV — Investment / ลงทุน' },
-    { value: 'OPC', label: 'OPC — Operating Cost / ต้นทุนดำเนินการ' },
-    { value: 'ADC', label: 'ADC — Additional Cost / ต้นทุนเพิ่มเติม' },
-    { value: 'BEN', label: 'BEN — Benefit / ผลประโยชน์' },
+  // ค่าที่เป็นไปได้ของ categories.category_group (enum ใน schema) — กลุ่มกำหนดทั้งรหัสหมวด
+  // ประเภทรายรับ/รายจ่าย และวิธีนับในการคำนวณ ROI ตามประเภทโครงการ
+  readonly categoryGroups: { value: CategoryGroup; label: string; hint: string }[] = [
+    { value: 'REV', label: 'REV — รายได้โดยตรง (Direct Revenue)', hint: 'รายรับ · กรอกเป็นยอดเงินต่อเดือน · นับในโครงการมุ่งสร้างรายได้/ผสมผสาน' },
+    { value: 'BEN', label: 'BEN — ผลประโยชน์ทางอ้อม (Indirect Benefit)', hint: 'รายรับ · กรอกเป็น ปริมาณ/เดือน × อัตรา · นับในโครงการมุ่งลดต้นทุน/ผสมผสาน' },
+    { value: 'INV', label: 'INV — เงินลงทุน (Investment)', hint: 'รายจ่าย · นับเป็นต้นทุนทุกประเภทโครงการ' },
+    { value: 'OPC', label: 'OPC — ต้นทุนดำเนินงาน (Operating Cost)', hint: 'รายจ่าย · นับเป็นต้นทุนทุกประเภทโครงการ' },
+    { value: 'ADC', label: 'ADC — ต้นทุนบริหาร/เพิ่มเติม (Additional Cost)', hint: 'รายจ่าย · นับเป็นต้นทุนทุกประเภทโครงการ' },
   ];
+
+  readonly statusLabels = PROJECT_STATUS_LABELS;
+
+  groupLabel(group: string): string {
+    return this.categoryGroups.find((g) => g.value === group)?.label ?? group;
+  }
+
+  get selectedGroupHint(): string {
+    return this.categoryGroups.find((g) => g.value === this.categoryForm.category_group)?.hint ?? '';
+  }
 
   constructor(
     private adminService: AdminService,
@@ -87,14 +100,12 @@ export class UserManagement implements OnInit {
       users: this.adminService.getUsers(),
       projects: this.adminService.getProjects(),
       categories: this.categoryService.getCategories(),
-      entryTypes: this.categoryService.getEntryTypes(),
       projectTypes: this.projectTypeService.getProjectTypes(),
     }).subscribe({
-      next: ({ users, projects, categories, entryTypes, projectTypes }) => {
+      next: ({ users, projects, categories, projectTypes }) => {
         this.users = users;
         this.projects = projects;
         this.categories = categories;
-        this.entryTypes = entryTypes;
         this.projectTypes = projectTypes;
         this.isLoading = false;
       },
@@ -191,8 +202,8 @@ export class UserManagement implements OnInit {
     this.categoryForm = {
       category_id: '',
       category_name: '',
-      type_id: this.entryTypes[0]?.type_id ?? null,
       category_group: '',
+      usage_count: 0,
       unit_label: '',
       rate_label: ''
     };
@@ -204,8 +215,8 @@ export class UserManagement implements OnInit {
     this.categoryForm = {
       category_id: cat.category_id,
       category_name: cat.category_name,
-      type_id: cat.type_id,
       category_group: cat.category_group,
+      usage_count: cat.usage_count ?? 0,
       unit_label: cat.unit_label || '',
       rate_label: cat.rate_label || ''
     };
@@ -218,15 +229,17 @@ export class UserManagement implements OnInit {
 
   saveCategory(): void {
     const f = this.categoryForm;
-    if (!f.category_name.trim() || !f.type_id || !f.category_group) {
+    if (!f.category_name.trim() || !f.category_group) {
       this.toastService.warning('กรุณากรอกข้อมูลให้ครบทุกช่อง');
       return;
     }
-    // FR03-4: ถ้าจะให้หมวดนี้คิดแบบ ปริมาณ × อัตรา ต้องตั้งชื่อหน่วยทั้งสองช่อง
-    const hasUnit = !!f.unit_label.trim();
-    const hasRate = !!f.rate_label.trim();
-    if (hasUnit !== hasRate) {
-      this.toastService.warning('หมวดหมู่แบบคำนวณจากปริมาณ ต้องระบุทั้งชื่อหน่วยปริมาณและชื่ออัตราต่อหน่วย');
+    // FR03-4: ผลประโยชน์ทางอ้อมตีมูลค่าจาก ปริมาณ × อัตรา — ต้องตั้งชื่อหน่วยทั้งสองช่อง
+    // กลุ่มอื่นกรอกเป็นยอดเงิน จึงไม่ส่งชื่อหน่วยไป
+    const isBenefit = f.category_group === 'BEN';
+    const hasUnit = isBenefit && !!f.unit_label.trim();
+    const hasRate = isBenefit && !!f.rate_label.trim();
+    if (isBenefit && (!hasUnit || !hasRate)) {
+      this.toastService.warning('ผลประโยชน์ทางอ้อมต้องระบุทั้งชื่อหน่วยปริมาณและชื่ออัตราต่อหน่วย');
       return;
     }
 
@@ -236,7 +249,6 @@ export class UserManagement implements OnInit {
       // category_id ไม่ต้องส่ง — backend สร้างรหัสให้อัตโนมัติตามกลุ่มค่าใช้จ่าย
       this.categoryService.createCategory({
         category_name: f.category_name.trim(),
-        type_id: f.type_id,
         category_group: f.category_group,
         unit_label: hasUnit ? f.unit_label.trim() : null,
         rate_label: hasRate ? f.rate_label.trim() : null
@@ -255,7 +267,6 @@ export class UserManagement implements OnInit {
     } else {
       this.categoryService.updateCategory(f.category_id, {
         category_name: f.category_name.trim(),
-        type_id: f.type_id,
         category_group: f.category_group,
         unit_label: hasUnit ? f.unit_label.trim() : null,
         rate_label: hasRate ? f.rate_label.trim() : null
