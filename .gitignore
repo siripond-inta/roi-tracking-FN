@@ -41,3 +41,9 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# ผลการทดสอบที่สร้างใหม่ทุกครั้งที่รัน
+/test-reports
+/cypress/downloads
+/cypress/screenshots
+/cypress/videos

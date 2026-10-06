@@ -6,7 +6,13 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:report": "ng test --watch=false --coverage --coverage-reporters=html --coverage-reporters=text-summary --reporters=html --reporters=default --output-file=test-reports/frontend/unit/index.html",
+    "test:report:open": "vite preview --outDir test-reports/frontend/unit --open",
+    "test:e2e": "cypress run --browser electron",
+    "test:e2e:open": "cypress open",
+    "test:uat": "node cypress/uat/run-uat.js",
+    "test:uat:report": "node cypress/uat/build-uat-report.js"
   },
   "prettier": {
     "printWidth": 100,
@@ -42,6 +48,10 @@
     "@angular/build": "^21.0.0",
     "@angular/cli": "^21.0.0",
     "@angular/compiler-cli": "^21.0.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/ui": "^4.1.5",
+    "cypress": "^14.5.4",
+    "cypress-mochawesome-reporter": "^3.8.4",
     "jsdom": "^27.1.0",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
