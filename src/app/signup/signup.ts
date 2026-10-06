@@ -37,6 +37,10 @@ export class Signup {
       this.errorMessage = 'กรุณากรอกข้อมูลให้ครบทุกช่อง';
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email.trim())) {
+      this.errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
+      return;
+    }
     if (this.password !== this.confirmPassword) {
       this.errorMessage = 'Password ไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง';
       return;

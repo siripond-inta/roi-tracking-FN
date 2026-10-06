@@ -13,11 +13,8 @@
             {{ (authService.currentUser()?.fullName || 'U').charAt(0) }}
           </div>
           <div>
-            <p class="text-muted small mb-3">This will be displayed on your profile and in communications.<br>Recommended size is 256x256px.</p>
-            <div class="d-flex gap-3 align-items-center">
-              <button class="btn btn-light rounded-pill px-4 py-2 border shadow-sm fw-bold">Change Picture</button>
-              <button class="btn btn-link text-danger text-decoration-none fw-bold p-0">Remove</button>
-            </div>
+            <!-- ยังไม่มีระบบอัปโหลดรูป — แสดงอักษรแรกของชื่อแทน (เอาปุ่ม Change Picture / Remove ที่กดแล้วไม่ทำงานออก) -->
+            <p class="text-muted small mb-0">รูปโปรไฟล์ใช้อักษรแรกของชื่อโดยอัตโนมัติ<br>เปลี่ยนชื่อได้ที่ Personal Details ด้านล่าง</p>
           </div>
         </div>
       </div>

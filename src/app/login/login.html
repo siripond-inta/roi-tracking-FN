@@ -23,17 +23,13 @@
           quickly.
         </p>
 
-        <div class="card border-0 shadow-sm rounded-4 p-4" style="max-width: 350px;">
-          <small class="text-muted text-uppercase fw-bold opacity-50" style="font-size: 0.7rem;">Monthly
-            Performance</small>
-          <h3 class="fw-bold mt-1">+24.5% <i class="bi bi-caret-up-fill text-success fs-6"></i></h3>
-          <div class="progress my-3" style="height: 6px;">
-            <div class="progress-bar bg-success" style="width: 75%"></div>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mt-2">
-            <small class="text-muted" style="font-size: 0.75rem;">Annual Goal</small>
-            <small class="text-muted fw-bold" style="font-size: 0.75rem;">75% Achieved</small>
-          </div>
+        <!-- เดิมเป็นการ์ดตัวเลขสมมติ (+24.5% / 75% Achieved) ที่ไม่ได้มาจากข้อมูลจริง — แทนด้วยรายการความสามารถของระบบ -->
+        <div class="card border-0 shadow-sm rounded-4 p-4" style="max-width: 380px;">
+          <ul class="list-unstyled mb-0 small text-muted d-grid gap-2">
+            <li><i class="bi bi-check-circle-fill text-success me-2"></i>วางแผนผลประโยชน์และต้นทุนรายเดือน</li>
+            <li><i class="bi bi-check-circle-fill text-success me-2"></i>คำนวณ ROI ระยะคืนทุน และจุดคุ้มทุนอัตโนมัติ</li>
+            <li><i class="bi bi-check-circle-fill text-success me-2"></i>เทียบผลจริงกับแผนในช่วงเดือนเดียวกัน</li>
+          </ul>
         </div>
       </div>
 
@@ -86,13 +82,10 @@
               </div>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mb-5">
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" id="remember">
-                <label class="form-check-label small text-muted" for="remember">Remember Me</label>
-              </div>
-              <a href="#" class="text-success text-decoration-none small fw-bold">Forgot Password?</a>
-            </div>
+            <!-- Remember Me / Forgot Password ยังไม่มีระบบรองรับ (ไม่มี endpoint รีเซ็ตรหัสผ่าน) — แสดงคำแนะนำแทนปุ่มที่กดแล้วไม่ทำงาน -->
+            <p class="small text-muted mb-5">
+              <i class="bi bi-info-circle me-1"></i>ลืมรหัสผ่าน? กรุณาติดต่อผู้ดูแลระบบ
+            </p>
 
             <!-- [disabled]: ปิดปุ่มระหว่างที่กำลัง login เพื่อป้องกัน double submit -->
             <button type="submit" [disabled]="isLoading"
