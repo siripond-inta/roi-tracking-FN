@@ -43,3 +43,16 @@
   max-height: 90vh;
   overflow-y: auto;
 }
+
+/* ─── Export PDF ─── */
+.print-header { display: none; }
+
+@media print {
+  .no-print, .btn, .modal-backdrop-custom { display: none !important; }
+  .print-header { display: block !important; }
+  .admin-section { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+  .table-responsive { overflow: visible !important; }
+  .table { font-size: 9.5pt; }
+  /* แถวที่เมาส์ชี้อยู่ตอนกดพิมพ์ไม่ต้องติดสีไฮไลต์ไปใน PDF */
+  .table-hover > tbody > tr:hover > * { --bs-table-bg-state: transparent; box-shadow: none !important; }
+}

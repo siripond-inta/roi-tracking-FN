@@ -14,6 +14,7 @@ interface CategoryFormModel {
   category_name: string;
   category_group: '' | CategoryGroup;
   usage_count: number; // มีข้อมูลใช้งานแล้วเปลี่ยนกลุ่มไม่ได้ (backend ตรวจซ้ำ)
+  allow_custom_name: boolean; // หมวด "อื่นๆ" — ผู้ใช้พิมพ์ชื่อรายการเอง
   // FR03-4: หมวดประโยชน์ทางอ้อม (BEN) ต้องระบุชื่อหน่วยทั้งคู่ — ใช้เป็นหัวช่องกรอกในฟอร์ม
   unit_label: string;
   rate_label: string;
@@ -25,6 +26,8 @@ interface ProjectTypeFormModel {
   description: string;
   calculation_method: '' | 'REVENUE' | 'COST_SAVING' | 'MIXED';
 }
+
+type AdminTab = 'users' | 'projects' | 'categories' | 'project-types';
 
 @Component({
   selector: 'app-user-management',
@@ -39,7 +42,7 @@ export class UserManagement implements OnInit {
   projectTypes: ProjectType[] = [];
   isLoading = false;
 
-  activeTab: 'users' | 'projects' | 'categories' | 'project-types' = 'users';
+  activeTab: AdminTab = 'users';
   userSearchTerm = '';
   projectSearchTerm = '';
   categorySearchTerm = '';
@@ -48,7 +51,8 @@ export class UserManagement implements OnInit {
   showCategoryForm = false;
   categoryFormMode: 'create' | 'edit' = 'create';
   categoryForm: CategoryFormModel = {
-    category_id: '', category_name: '', category_group: '', usage_count: 0, unit_label: '', rate_label: ''
+    category_id: '', category_name: '', category_group: '', usage_count: 0, allow_custom_name: false,
+    unit_label: '', rate_label: ''
   };
   isSavingCategory = false;
 
@@ -146,9 +150,52 @@ export class UserManagement implements OnInit {
     return this.projects.reduce((sum, p) => sum + Number(p.initial_budget || 0), 0);
   }
 
-  // ─── Filters ─────────────────────────────────────────────────────────────
+  // ─── Export PDF แยกตามหัวข้อ: แสดงเฉพาะหัวข้อนั้นแล้วสั่งพิมพ์ (เลือก "Save as PDF") ──
+  // printingTab = หัวข้อที่กำลังส่งออก (null = ไม่ได้พิมพ์อยู่)
+  printingTab: AdminTab | null = null;
+
+  readonly tabTitles: Record<AdminTab, string> = {
+    users: 'User Accounts',
+    projects: 'All Projects',
+    categories: 'Benefit / Cost Categories',
+    'project-types': 'Project Types',
+  };
+
+  get today(): Date {
+    return new Date();
+  }
+
+  showTab(tab: AdminTab): boolean {
+    return this.printingTab ? this.printingTab === tab : this.activeTab === tab;
+  }
+
+  tabCount(tab: AdminTab): number {
+    switch (tab) {
+      case 'users': return this.users.length;
+      case 'projects': return this.projects.length;
+      case 'categories': return this.categories.length;
+      default: return this.projectTypes.length;
+    }
+  }
+
+  exportPdf(tab: AdminTab): void {
+    this.printingTab = tab;
+    // ชื่อไฟล์ที่เบราว์เซอร์เสนอตอน "Save as PDF" มาจาก document.title
+    const originalTitle = document.title;
+    document.title = `roi-admin-${tab}-${new Date().toISOString().slice(0, 10)}`;
+    const restore = () => {
+      this.printingTab = null;
+      document.title = originalTitle;
+      window.removeEventListener('afterprint', restore);
+    };
+    window.addEventListener('afterprint', restore);
+    // รอให้ Angular render หัวกระดาษก่อนเปิดหน้าต่างพิมพ์
+    setTimeout(() => window.print(), 300);
+  }
+
+  // ─── Filters (ตอน export ใช้ข้อมูลทั้งหมดของหัวข้อนั้น ไม่สนคำค้นหา) ───────────
   get filteredUsers(): AdminUser[] {
-    if (!this.userSearchTerm.trim()) return this.users;
+    if (this.printingTab || !this.userSearchTerm.trim()) return this.users;
     const term = this.userSearchTerm.toLowerCase();
     return this.users.filter(u =>
       u.full_name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term)
@@ -156,7 +203,7 @@ export class UserManagement implements OnInit {
   }
 
   get filteredProjects(): AdminProject[] {
-    if (!this.projectSearchTerm.trim()) return this.projects;
+    if (this.printingTab || !this.projectSearchTerm.trim()) return this.projects;
     const term = this.projectSearchTerm.toLowerCase();
     return this.projects.filter(p =>
       p.project_name.toLowerCase().includes(term) || p.owner_name?.toLowerCase().includes(term)
@@ -164,7 +211,7 @@ export class UserManagement implements OnInit {
   }
 
   get filteredCategories(): Category[] {
-    if (!this.categorySearchTerm.trim()) return this.categories;
+    if (this.printingTab || !this.categorySearchTerm.trim()) return this.categories;
     const term = this.categorySearchTerm.toLowerCase();
     return this.categories.filter(c =>
       c.category_name.toLowerCase().includes(term) || c.category_id.toLowerCase().includes(term)
@@ -204,6 +251,7 @@ export class UserManagement implements OnInit {
       category_name: '',
       category_group: '',
       usage_count: 0,
+      allow_custom_name: false,
       unit_label: '',
       rate_label: ''
     };
@@ -217,6 +265,7 @@ export class UserManagement implements OnInit {
       category_name: cat.category_name,
       category_group: cat.category_group,
       usage_count: cat.usage_count ?? 0,
+      allow_custom_name: !!cat.allow_custom_name,
       unit_label: cat.unit_label || '',
       rate_label: cat.rate_label || ''
     };
@@ -250,6 +299,7 @@ export class UserManagement implements OnInit {
       this.categoryService.createCategory({
         category_name: f.category_name.trim(),
         category_group: f.category_group,
+        allow_custom_name: f.allow_custom_name,
         unit_label: hasUnit ? f.unit_label.trim() : null,
         rate_label: hasRate ? f.rate_label.trim() : null
       }).subscribe({
@@ -268,6 +318,7 @@ export class UserManagement implements OnInit {
       this.categoryService.updateCategory(f.category_id, {
         category_name: f.category_name.trim(),
         category_group: f.category_group,
+        allow_custom_name: f.allow_custom_name,
         unit_label: hasUnit ? f.unit_label.trim() : null,
         rate_label: hasRate ? f.rate_label.trim() : null
       }).subscribe({

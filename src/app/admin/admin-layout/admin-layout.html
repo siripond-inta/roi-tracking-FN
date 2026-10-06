@@ -1,4 +1,5 @@
-<div class="d-flex" style="height: 100vh; overflow: hidden;">
+<!-- app-shell / app-content-col / app-main-scroll = hook ของ @media print ใน styles.css (ปลด 100vh/overflow ตอนพิมพ์) -->
+<div class="app-shell d-flex" style="height: 100vh; overflow: hidden;">
   <!-- Sidebar: fix ความสูงเท่าจอ ไม่เลื่อนไปกับ content — overflow-y: auto กันไว้เผื่อเมนูยาวเกินจอ -->
   <div class="sidebar bg-white border-end d-flex flex-column p-3"
     style="width: 280px; height: 100vh; overflow-y: auto; flex-shrink: 0;">
@@ -46,7 +47,7 @@
 
   <!-- Content column: header คงที่ + main เลื่อน scroll เองอย่างเดียว (min-width/min-height:0
        จำเป็นสำหรับ flexbox ไม่งั้น overflow จะไม่ทำงานตามที่ควร) -->
-  <div class="flex-grow-1 bg-light d-flex flex-column" style="height: 100vh; min-width: 0;">
+  <div class="app-content-col flex-grow-1 bg-light d-flex flex-column" style="height: 100vh; min-width: 0;">
     <header class="navbar navbar-white bg-white border-bottom py-3 px-4" style="flex-shrink: 0;">
       <div class="container-fluid p-0 d-flex justify-content-between align-items-center">
         <!-- หัวข้อของหน้าปัจจุบัน อ่านจาก route data — เปลี่ยนอัตโนมัติตามหน้าที่เข้า -->
@@ -66,7 +67,7 @@
       </div>
     </header>
 
-    <main class="p-4" style="flex: 1 1 auto; min-height: 0; overflow-y: auto;">
+    <main class="app-main-scroll p-4" style="flex: 1 1 auto; min-height: 0; overflow-y: auto;">
       <router-outlet></router-outlet>
     </main>
   </div>
