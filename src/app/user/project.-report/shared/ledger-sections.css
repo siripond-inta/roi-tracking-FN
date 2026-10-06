@@ -46,6 +46,18 @@
 .field-amount { flex: 0 0 150px; }
 .field-qty { flex: 0 0 160px; min-width: 0; }
 .field-note { flex: 1 1 180px; min-width: 150px; }
+.field-custom { flex: 0 0 220px; }
+.field-month { flex: 0 0 190px; }
+.row-total-box { min-width: 130px; }
+
+/* ปุ่มเลือก "ครั้งเดียว / ทุกเดือน" ใช้สีของส่วนนั้น */
+.btn-tone { background: var(--tone); border-color: var(--tone); color: #fff; }
+.btn-tone:hover { color: #fff; filter: brightness(1.05); }
+
+/* ค่าตามแผนที่แสดงตอนกรอกผลจริง */
+.plan-hint { background: #f8f9fa; color: #6c757d; border: 1px dashed #dee2e6; }
+.plan-hint strong { color: #495057; }
+input::placeholder { color: #adb5bd; font-weight: 400; }
 .times-sign { color: #6c757d; font-weight: 700; padding-top: 1.4rem; }
 
 .amount-input { color: var(--tone); }
@@ -71,8 +83,9 @@ input[type="number"] { -moz-appearance: textfield; }
 .ledger-share-fill { height: 100%; border-radius: 2px; background: var(--tone); transition: width 0.25s ease; }
 
 @media (max-width: 767.98px) {
-  .field-category, .field-amount, .field-note { flex: 1 1 100%; }
-  .field-period { flex: 1 1 calc(50% - 0.5rem); }
+  .field-category, .field-amount, .field-note, .field-custom { flex: 1 1 100%; }
+  .field-period, .field-month { flex: 1 1 calc(50% - 0.5rem); }
+  .row-total-box { flex: 1 1 100%; }
   .field-qty { flex: 1 1 calc(50% - 1.25rem); }
 }
 

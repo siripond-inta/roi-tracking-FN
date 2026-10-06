@@ -1,8 +1,8 @@
-import { Component, OnDestroy, OnInit, QueryList, ViewChildren } from '@angular/core';
+import { Component, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { PROJECT_STATUS_LABELS, Project, ProjectLedger } from '../../../models/roi-tracking-model';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { BaseChartDirective } from 'ng2-charts';
+import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartConfiguration } from 'chart.js';
 import { ProjectService } from '../../../services/project.service';
 import { AuthService } from '../../../services/auth.service';
@@ -23,18 +23,45 @@ import {
   SOURCE_ORDER,
   blankRow,
   categoriesForSource,
+  calendarMonth,
   groupLedgers,
+  itemKey,
   splitBySource,
+  toPlan,
 } from '../ledger-row.util';
 import { LedgerDraft } from '../ledger-draft';
 import { BenefitSummary, LedgerSectionEditor, LedgerSectionView, SECTION_META } from '../shared/ledger-sections';
 import { KpiCards } from '../shared/kpi-cards';
+import { CashflowChart } from '../shared/cashflow-chart';
+import { BahtPipe } from '../shared/baht.pipe';
+import { PctPipe } from '../shared/pct.pipe';
+import { showReportLoadError } from '../shared/load-error';
+import {
+  PlanComparison,
+  comparePlan,
+  planComparisonClass,
+  planComparisonIcon,
+  planComparisonLabel,
+} from '../shared/plan-compare';
 
 export type { LedgerRow };
 
+// หนึ่งแถวของตาราง "แผน vs จริง" — null = คำนวณไม่ได้ (เช่น ยังไม่มีผลประโยชน์ เลยไม่มีระยะคืนทุน)
+interface CompareRow {
+  label: string;
+  plan: number | null;
+  actual: number | null;
+  unit: 'percent' | 'baht' | 'months';
+  higherIsBetter: boolean;
+}
+
 @Component({
   selector: 'app-actual-report',
-  imports: [CommonModule, RouterModule, BaseChartDirective, LedgerSectionEditor, LedgerSectionView, BenefitSummary, KpiCards],
+  imports: [
+    CommonModule, RouterModule, BaseChartDirective, LedgerSectionEditor, LedgerSectionView, BenefitSummary, KpiCards,
+    CashflowChart, BahtPipe, PctPipe,
+  ],
+  providers: [provideCharts(withDefaultRegisterables())],
   templateUrl: './actual-report.html',
   styleUrl: '../report-shared.css',
 })
@@ -57,6 +84,7 @@ export class ActualReport implements OnInit, OnDestroy {
   draft?: LedgerDraft;
 
   readonly sources = SOURCE_ORDER;
+  showMonthlyTable = false; // ตารางตัวเลขรายเดือนพับเก็บไว้ก่อน — ตอนพิมพ์แสดงเต็ม
   readonly sectionMeta = SECTION_META;
   readonly statusLabels = PROJECT_STATUS_LABELS;
 
@@ -95,9 +123,22 @@ export class ActualReport implements OnInit, OnDestroy {
     return this.analytics?.summary.targetRoi ?? null;
   }
 
+  // ความคุ้มค่ามาจาก backend: ผลจริงยังไม่ครบ → ใช้ "คาดการณ์ทั้งโครงการ" (ผลจริง + แผนเดือนที่เหลือ)
+  // เพราะเป้า ROI ตั้งไว้สำหรับทั้งโครงการ ถ้าเทียบ ROI ของผลจริงแค่บางเดือนจะไม่คุ้มค่าแทบทุกโครงการ
   get isWorthwhile(): boolean | null {
-    if (this.targetRoi == null || !this.shown) return null;
-    return this.shown.roi >= this.targetRoi;
+    return this.shownAnalytics?.summary.isWorthwhile ?? null;
+  }
+
+  get worthwhileBasis(): 'actual' | 'estimated' | 'projected' | undefined {
+    return this.shownAnalytics?.summary.worthwhileBasis;
+  }
+
+  get projected() {
+    return this.shownAnalytics?.summary.projected;
+  }
+
+  get worthwhileNote(): string {
+    return this.worthwhileBasis === 'projected' ? 'คาดการณ์ทั้งโครงการ' : '';
   }
 
   get lastActualPeriod(): number {
@@ -158,9 +199,9 @@ export class ActualReport implements OnInit, OnDestroy {
           this.mode = 'view';
         }
       },
-      error: () => {
+      error: (err) => {
         this.isLoading = false;
-        Swal.fire({ icon: 'error', title: 'โหลดข้อมูลไม่สำเร็จ', text: 'กรุณาลองใหม่อีกครั้ง' });
+        showReportLoadError(err, this.router);
       },
     });
   }
@@ -168,44 +209,35 @@ export class ActualReport implements OnInit, OnDestroy {
   // ─── Edit / View ───────────────────────────────────────────────────────────
   startEdit(): void {
     if (!this.draft) return;
-    const duration = this.project?.duration_months ?? 12;
-    let rows: LedgerRowsBySource;
+    const planned = groupLedgers(this.estimatedLedger);
 
-    if (this.actualLedger.length > 0) {
-      const copy = (list: LedgerRow[]) => list.map((r) => ({ ...r }));
-      rows = { direct: copy(this.savedRows.direct), indirect: copy(this.savedRows.indirect), cost: copy(this.savedRows.cost) };
-    } else {
-      // ครั้งแรก: เตรียมรายการตามแผน (หมวด + อัตราต่อหน่วยเดิม) แต่ให้กรอกยอด/ปริมาณจริงเอง
-      // ช่วงเดือนตั้งเป็นเดือนที่ 1 ไว้ก่อน ผู้ใช้ขยายช่วงตามเดือนที่เกิดขึ้นจริง
-      const planned = splitBySource(groupLedgers(this.estimatedLedger), this.allCategories);
-      const seen = new Set<string>();
-      const blankFrom = (r: LedgerRow): LedgerRow => ({
-        ...r,
-        period_from: 1,
-        period_to: 1,
-        total_value: null,
-        unit_qty: null,
-        unit_cost: r.unit_cost,
-        note: r.note,
-      });
-      const uniq = (list: LedgerRow[]) =>
-        list.filter((r) => {
-          const k = `${r.category_id}|${r.note}|${r.unit_cost ?? ''}`;
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-      rows = {
-        direct: uniq(planned.direct).map(blankFrom),
-        indirect: uniq(planned.indirect).map(blankFrom),
-        cost: uniq(planned.cost).map(blankFrom),
-      };
-    }
+    // แต่ละรายการผลจริงจับคู่กับรายการแผนเดียวกัน (หมวด + ชื่อรายการ) ที่ช่วงเดือนทับกัน
+    // เพื่อโชว์ค่าตามแผนเป็นตัวอักษรจางๆ ในช่องกรอก
+    const overlaps = (a: LedgerRow, b: LedgerRow) => a.period_from <= b.period_to && b.period_from <= a.period_to;
+    const findPlan = (row: LedgerRow) => {
+      const same = planned.filter((p) => itemKey(p) === itemKey(row));
+      return same.find((p) => overlaps(p, row)) ?? same[0];
+    };
+
+    const actualRows = groupLedgers(this.actualLedger).map((r) => {
+      const plan = findPlan(r);
+      return { ...r, plan: plan ? toPlan(plan) : undefined };
+    });
+
+    // รายการตามแผนที่ยังไม่มีผลจริง → เตรียมช่องว่างไว้ให้ (จำนวนช่องเท่ากับแผน) ช่วงเดือนและ
+    // หมายเหตุเหมือนแผน ส่วนตัวเลขเว้นว่างให้กรอกผลจริง (เห็นค่าตามแผนเป็น placeholder)
+    const pending = planned
+      .filter((p) => !actualRows.some((a) => itemKey(a) === itemKey(p) && overlaps(a, p)))
+      .map((p) => ({ ...p, total_value: null, unit_qty: null, unit_cost: null, plan: toPlan(p) }));
+
+    const rows = splitBySource([...actualRows, ...pending].sort(
+      (a, b) => a.period_from - b.period_from || a.category_id.localeCompare(b.category_id)
+    ), this.allCategories);
 
     for (const source of SOURCE_ORDER) {
       const first = categoriesForSource(this.allCategories, source)[0];
       if (this.isCounted(source) && rows[source].length === 0 && first) {
-        rows[source].push(blankRow(first.category_id, 1));
+        rows[source].push(blankRow(first.category_id, this.project?.duration_months ?? 12));
       }
     }
     this.draft.load(rows);
@@ -269,10 +301,10 @@ export class ActualReport implements OnInit, OnDestroy {
     const closing = status === 'completed';
     const confirm = await Swal.fire({
       icon: 'question',
-      title: closing ? 'สิ้นสุดโครงการ?' : 'เปิดโครงการอีกครั้ง?',
+      title: closing ? 'ปิดโครงการ (Completed)?' : 'เปิดโครงการอีกครั้ง?',
       text: closing
         ? 'ข้อมูลทั้งหมดจะถูกล็อกไม่ให้แก้ไข (เปิดกลับมาแก้ได้ภายหลัง)'
-        : 'สถานะจะกลับเป็น "กำลังดำเนินการ" และแก้ไขผลจริงได้อีกครั้ง',
+        : 'สถานะจะกลับเป็น Actual และแก้ไขผลจริงได้อีกครั้ง',
       showCancelButton: true,
       confirmButtonText: 'ยืนยัน',
       cancelButtonText: 'ยกเลิก',
@@ -293,14 +325,17 @@ export class ActualReport implements OnInit, OnDestroy {
   // <canvas> ของ Chart.js วาดใหม่เมื่อขนาดกล่องเปลี่ยน พอสลับไป layout ของกระดาษ กราฟมักจะ
   // ออกมาว่างเปล่า — แปลงกราฟเป็นรูปก่อนสั่งพิมพ์ แล้วให้ CSS โชว์รูปแทน canvas ตอนพิมพ์
   @ViewChildren(BaseChartDirective) private chartDirectives?: QueryList<BaseChartDirective>;
+  @ViewChild(CashflowChart) private cashflowChart?: CashflowChart;
   chartImages: string[] = [];
 
   printReport(): void {
     this.chartImages = (this.chartDirectives?.toArray() ?? []).map((d) => d.chart?.toBase64Image() ?? '');
+    this.cashflowChart?.prepareForPrint();
 
     // ล้างรูปหลังปิดหน้าต่างพิมพ์ — บางเบราว์เซอร์ window.print() คืนค่าทันที ถ้าล้างก่อนกราฟจะหาย
     const restore = () => {
       this.chartImages = [];
+      this.cashflowChart?.clearPrintImage();
       window.removeEventListener('afterprint', restore);
     };
     window.addEventListener('afterprint', restore);
@@ -339,21 +374,70 @@ export class ActualReport implements OnInit, OnDestroy {
     });
   }
 
+  monthName(period: number | null | undefined): string {
+    return period ? calendarMonth(this.project?.created_at, period) : '';
+  }
+
+  // ═══ แผน vs จริง แบบอ่านง่าย — เทียบกับแผน "ถึงเดือนเดียวกัน" (ตัวเลขจาก backend) ═══
+  get compareRows(): CompareRow[] {
+    const plan = this.analytics?.summary.estimatedToDate;
+    const act = this.act;
+    if (!plan || !act) return [];
+    return [
+      { label: 'ROI', plan: plan.roi, actual: act.roi, unit: 'percent', higherIsBetter: true },
+      { label: 'ผลประโยชน์รวม', plan: plan.totalRevenue, actual: act.totalRevenue, unit: 'baht', higherIsBetter: true },
+      { label: 'ต้นทุนรวม', plan: plan.totalExpense, actual: act.totalExpense, unit: 'baht', higherIsBetter: false },
+      { label: 'ผลประโยชน์สุทธิ', plan: plan.netProfit, actual: act.netProfit, unit: 'baht', higherIsBetter: true },
+      // คืนทุนเร็วกว่า (จำนวนเดือนน้อยกว่า) = ดี
+      { label: 'ระยะคืนทุน', plan: plan.paybackMonths, actual: act.paybackMonths, unit: 'months', higherIsBetter: false },
+    ];
+  }
+
+  // ผลของแต่ละแถว: ต่ำกว่าแผน / เท่ากับแผน / สูงกว่าแผน (ROI ถือว่าเท่ากันถ้าต่างไม่ถึง 0.05%)
+  rowResult(row: CompareRow): PlanComparison | null {
+    if (row.actual == null || row.plan == null) return null; // คำนวณไม่ได้ฝั่งใดฝั่งหนึ่ง → ไม่ตัดสิน
+    return comparePlan(row.actual, row.plan, row.unit === 'baht' ? 0.5 : 0.05);
+  }
+
+  // สรุปภาพรวมด้านบน: ROI จริงเทียบกับแผนช่วงเดียวกัน
+  get overallResult(): PlanComparison | null {
+    const plan = this.analytics?.summary.estimatedToDate;
+    if (!plan || !this.act || !this.lastActualPeriod) return null;
+    if (this.act.roi == null || plan.roi == null) {
+      return comparePlan(this.act.netProfit, plan.netProfit); // ROI คำนวณไม่ได้ → เทียบผลประโยชน์สุทธิแทน
+    }
+    return comparePlan(this.act.roi, plan.roi, 0.05);
+  }
+
+  readonly comparisonLabel = planComparisonLabel;
+  readonly comparisonIcon = planComparisonIcon;
+  readonly comparisonClass = planComparisonClass;
+
   // ═══ FR05-2: เปรียบเทียบแผน vs จริง รายหมวด (ตัวเลขจาก backend) ══════════════
   categoriesOf(source: BenefitSource): CategoryBreakdown[] {
     return (this.analytics?.byCategory ?? []).filter((c) => c.source === source);
   }
 
-  // ผลจริงดีกว่าแผนไหม: ผลประโยชน์ควรสูงกว่าแผน ต้นทุนควรต่ำกว่าแผน (เทียบกับแผนถึงเดือนเดียวกัน)
-  varianceGood(c: CategoryBreakdown): boolean {
-    return c.source === 'cost' ? c.varianceToDate <= 0 : c.varianceToDate >= 0;
+  // รายหมวด: เทียบกับแผนถึงเดือนเดียวกัน — สีบอกดี/ไม่ดี (ต้นทุนสูงกว่าแผน = แดง)
+  categoryResult(c: CategoryBreakdown): PlanComparison {
+    return comparePlan(c.actual, c.estimatedToDate);
   }
 
-  varianceLabel(c: CategoryBreakdown): string {
+  categoryLabel(c: CategoryBreakdown): string {
     if (c.estimatedToDate === 0 && c.actual > 0) return 'ไม่มีในแผน';
-    if (c.varianceToDate === 0) return 'ตามแผน';
-    if (c.source === 'cost') return c.varianceToDate > 0 ? 'เกินงบ' : 'ต่ำกว่างบ';
-    return c.varianceToDate > 0 ? 'สูงกว่าเป้า' : 'ต่ำกว่าเป้า';
+    return planComparisonLabel(this.categoryResult(c));
+  }
+
+  categoryClass(c: CategoryBreakdown): string {
+    if (c.estimatedToDate === 0 && c.actual > 0) return 'bg-light text-muted border';
+    return planComparisonClass(this.categoryResult(c), c.source !== 'cost');
+  }
+
+  // สีตัวเลขส่วนต่าง: เขียว = ดีต่อโครงการ, แดง = ไม่ดี, เทา = เท่ากับแผน
+  varianceTextClass(c: CategoryBreakdown): string {
+    const result = this.categoryResult(c);
+    if (result === 'equal') return 'text-muted';
+    return (result === 'above') === (c.source !== 'cost') ? 'text-success' : 'text-danger';
   }
 
   sumOf(list: CategoryBreakdown[], key: 'estimated' | 'estimatedToDate' | 'actual' | 'varianceToDate'): number {
@@ -361,63 +445,6 @@ export class ActualReport implements OnInit, OnDestroy {
   }
 
   // ═══ FR05-1: กราฟสรุปผล ════════════════════════════════════════════════════
-  // กราฟเส้น: แนวโน้ม ROI สะสมรายเดือน (แผน vs จริง)
-  get roiTrendChartData(): ChartConfiguration<'line'>['data'] {
-    const monthly = this.analytics?.monthly ?? [];
-
-    // ROI สะสม ณ สิ้นเดือนนั้นๆ = (ผลประโยชน์สะสม − ต้นทุนสะสม) / ต้นทุนสะสม × 100
-    const cumulativeRoi = (pick: (m: (typeof monthly)[number]) => { revenue: number; expense: number }) => {
-      let revenue = 0;
-      let expense = 0;
-      return monthly.map((m) => {
-        const f = pick(m);
-        revenue += f.revenue;
-        expense += f.expense;
-        return expense > 0 ? ((revenue - expense) / expense) * 100 : 0;
-      });
-    };
-
-    // ผลจริงลากเส้นเฉพาะเดือนที่บันทึกแล้ว เดือนที่ยังไม่ถึงปล่อยว่าง (null)
-    const actualSeries = cumulativeRoi((m) => m.actual).map((v, i) =>
-      monthly[i].period <= this.lastActualPeriod ? v : null
-    );
-
-    return {
-      labels: monthly.map((m) => `เดือน ${m.period}`),
-      datasets: [
-        {
-          label: 'ROI ประมาณการ (สะสม)',
-          data: cumulativeRoi((m) => m.estimated),
-          borderColor: '#6c757d',
-          backgroundColor: 'rgba(108,117,125,.1)',
-          borderDash: [6, 4],
-          tension: 0.3,
-          pointRadius: 2,
-        },
-        {
-          label: 'ROI จริง (สะสม)',
-          data: actualSeries,
-          borderColor: '#198754',
-          backgroundColor: 'rgba(25,135,84,.15)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          spanGaps: false,
-        },
-      ],
-    };
-  }
-
-  readonly roiTrendChartOptions: ChartConfiguration<'line'>['options'] = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { position: 'bottom' } },
-    scales: {
-      y: { ticks: { callback: (v) => `${v}%` }, grid: { color: 'rgba(0,0,0,.05)' } },
-      x: { grid: { display: false } },
-    },
-  };
-
   // กราฟแท่ง: ผลประโยชน์รายหมวดที่นับตามประเภทโครงการ (แผนถึงเดือนเดียวกัน vs จริง)
   get benefitChartData(): ChartConfiguration<'bar'>['data'] {
     const benefits = (this.analytics?.byCategory ?? []).filter((c) => c.source !== 'cost' && c.counted);

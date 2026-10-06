@@ -23,9 +23,10 @@
       ยังไม่มีหมวดหมู่ของ{{ meta.title }}ในระบบ — ติดต่อผู้ดูแลระบบเพื่อเพิ่มหมวดหมู่
     </div>
 
-    <div class="d-flex flex-column gap-2 mb-3" *ngIf="options.length > 0 || rows.length > 0">
-      <div class="ledger-row-card rounded-3 p-2 p-md-3" *ngFor="let row of rows; let i = index"
-        (input)="changed.emit()">
+    <div class="d-flex flex-column gap-3 mb-3" *ngIf="options.length > 0 || rows.length > 0">
+      <div class="ledger-row-card rounded-3 p-3" *ngFor="let row of rows; let i = index" (input)="changed.emit()">
+
+        <!-- 1) รายการอะไร -->
         <div class="d-flex flex-wrap align-items-end gap-2 gap-md-3">
           <span class="ledger-index align-self-center">{{ i + 1 }}</span>
 
@@ -35,58 +36,19 @@
             </label>
             <select class="form-select form-select-sm rounded-3 bg-light"
               [(ngModel)]="row.category_id" (ngModelChange)="onCategoryChange(row)">
-              <option *ngFor="let c of options" [value]="c.category_id">{{ c.category_name }}</option>
+              <option *ngFor="let c of sortedOptions" [value]="c.category_id">{{ c.category_name }}</option>
               <!-- หมวดที่ถูกย้ายกลุ่ม/ลบไปแล้วแต่ยังมีข้อมูลเดิม -->
               <option *ngIf="!categoryOf(row)" [value]="row.category_id">{{ row.category_id }}</option>
             </select>
           </div>
 
-          <div class="field-period">
-            <label class="form-label small text-muted mb-1">ตั้งแต่เดือนที่</label>
-            <select class="form-select form-select-sm rounded-3 bg-light"
-              [(ngModel)]="row.period_from" (ngModelChange)="onFromChange(row)">
-              <option *ngFor="let p of periods" [ngValue]="p">{{ p }}</option>
-            </select>
+          <!-- หมวด "อื่นๆ": ให้พิมพ์ชื่อรายการเอง -->
+          <div class="field-custom" *ngIf="isCustom(row)">
+            <label class="form-label small text-muted mb-1">ระบุชื่อรายการ <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm rounded-3 bg-light"
+              [class.is-invalid]="!row.custom_name.trim()" [(ngModel)]="row.custom_name"
+              placeholder="เช่น ค่าโฆษณาออนไลน์" maxlength="255">
           </div>
-          <div class="field-period">
-            <label class="form-label small text-muted mb-1">ถึงเดือนที่</label>
-            <select class="form-select form-select-sm rounded-3 bg-light"
-              [(ngModel)]="row.period_to" (ngModelChange)="changed.emit()">
-              <option *ngFor="let p of periodsFrom(row.period_from)" [ngValue]="p">{{ p }}</option>
-            </select>
-          </div>
-
-          <!-- หมวดยอดเงิน: กรอกยอดต่อเดือน -->
-          <div class="field-amount" *ngIf="!isQtyRow(row)">
-            <label class="form-label small text-muted mb-1">ยอดต่อเดือน (฿)</label>
-            <input type="number" class="form-control form-control-sm rounded-3 bg-light text-end fw-bold amount-input"
-              [(ngModel)]="row.total_value" placeholder="0" min="0">
-          </div>
-
-          <!-- ประโยชน์ทางอ้อม: ปริมาณต่อเดือน × อัตราขององค์กร -->
-          <ng-container *ngIf="isQtyRow(row)">
-            <div class="field-qty">
-              <label class="form-label small text-muted mb-1 text-truncate d-block" [title]="categoryOf(row)?.unit_label">
-                {{ categoryOf(row)?.unit_label }}
-              </label>
-              <input type="number" class="form-control form-control-sm rounded-3 bg-light text-end fw-bold"
-                [(ngModel)]="row.unit_qty" placeholder="0" min="0">
-            </div>
-            <span class="times-sign align-self-center">×</span>
-            <div class="field-qty">
-              <label class="form-label small text-muted mb-1 text-truncate d-block" [title]="categoryOf(row)?.rate_label">
-                {{ categoryOf(row)?.rate_label }}
-              </label>
-              <input type="number" class="form-control form-control-sm rounded-3 bg-light text-end fw-bold"
-                [(ngModel)]="row.unit_cost" placeholder="0" min="0">
-            </div>
-            <div class="field-amount">
-              <label class="form-label small text-muted mb-1">มูลค่าต่อเดือน</label>
-              <div class="form-control form-control-sm rounded-3 text-end fw-bold computed-value">
-                ฿{{ monthly(row) | number:'1.0-2' }}
-              </div>
-            </div>
-          </ng-container>
 
           <div class="field-note">
             <label class="form-label small text-muted mb-1">หมายเหตุ</label>
@@ -100,16 +62,92 @@
           </button>
         </div>
 
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2 small">
-          <span class="text-muted">
-            ฿{{ monthly(row) | number:'1.0-2' }} × {{ months(row) }} เดือน =
-            <strong class="row-total">฿{{ total(row) | number:'1.0-2' }}</strong>
-            <span *ngIf="source === 'indirect'" class="ms-2">
-              · เทียบรายปี ฿{{ monthly(row) * 12 | number:'1.0-2' }}
-            </span>
-          </span>
+        <!-- 2) เกิดขึ้นเมื่อไร -->
+        <div class="d-flex flex-wrap align-items-end gap-2 gap-md-3 mt-3 period-row">
+          <div>
+            <label class="form-label small text-muted mb-1 d-block">เกิดขึ้น</label>
+            <div class="btn-group btn-group-sm" role="group" aria-label="ความถี่">
+              <button type="button" class="btn" [ngClass]="!row.repeat ? 'btn-tone' : 'btn-outline-secondary'"
+                (click)="setRepeat(row, false)">ครั้งเดียว</button>
+              <button type="button" class="btn" [ngClass]="row.repeat ? 'btn-tone' : 'btn-outline-secondary'"
+                (click)="setRepeat(row, true)" [disabled]="durationMonths < 2">ทุกเดือน</button>
+            </div>
+          </div>
+
+          <div class="field-month">
+            <label class="form-label small text-muted mb-1">{{ row.repeat ? 'เริ่มเดือน' : 'ในเดือน' }}</label>
+            <select class="form-select form-select-sm rounded-3 bg-light"
+              [(ngModel)]="row.period_from" (ngModelChange)="onFromChange(row)">
+              <option *ngFor="let p of periods" [ngValue]="p">เดือนที่ {{ p }} · {{ monthName(p) }}</option>
+            </select>
+          </div>
+          <div class="field-month" *ngIf="row.repeat">
+            <label class="form-label small text-muted mb-1">ถึงเดือน</label>
+            <select class="form-select form-select-sm rounded-3 bg-light"
+              [(ngModel)]="row.period_to" (ngModelChange)="changed.emit()">
+              <option *ngFor="let p of periodsFrom(row.period_from)" [ngValue]="p">เดือนที่ {{ p }} · {{ monthName(p) }}</option>
+            </select>
+          </div>
+          <small class="text-muted pb-1" *ngIf="row.repeat">รวม {{ months(row) }} เดือน</small>
         </div>
-        <div class="ledger-share-track mt-1" *ngIf="share(row) > 0">
+
+        <!-- 3) มูลค่าเท่าไร -->
+        <div class="d-flex flex-wrap align-items-end gap-2 gap-md-3 mt-3">
+          <div class="field-amount" *ngIf="!isQtyRow(row)">
+            <label class="form-label small text-muted mb-1">{{ row.repeat ? 'ยอดต่อเดือน (฿)' : 'ยอดเงิน (฿)' }}</label>
+            <input type="number" class="form-control form-control-sm rounded-3 bg-light text-end fw-bold amount-input"
+              [(ngModel)]="row.total_value" [placeholder]="placeholder(row.plan?.total_value)" min="0"
+              [class.is-invalid]="(row.total_value ?? 0) < 0" title="ต้องเป็นตัวเลขที่ไม่ติดลบ">
+          </div>
+
+          <!-- ประโยชน์ทางอ้อม: ปริมาณต่อเดือน × อัตราขององค์กร -->
+          <ng-container *ngIf="isQtyRow(row)">
+            <div class="field-qty">
+              <label class="form-label small text-muted mb-1 text-truncate d-block" [title]="categoryOf(row)?.unit_label">
+                {{ categoryOf(row)?.unit_label }}
+              </label>
+              <input type="number" class="form-control form-control-sm rounded-3 bg-light text-end fw-bold"
+                [(ngModel)]="row.unit_qty" [placeholder]="placeholder(row.plan?.unit_qty)" min="0"
+              [class.is-invalid]="(row.unit_qty ?? 0) < 0" title="ต้องเป็นตัวเลขที่ไม่ติดลบ">
+            </div>
+            <span class="times-sign align-self-center">×</span>
+            <div class="field-qty">
+              <label class="form-label small text-muted mb-1 text-truncate d-block" [title]="categoryOf(row)?.rate_label">
+                {{ categoryOf(row)?.rate_label }}
+              </label>
+              <input type="number" class="form-control form-control-sm rounded-3 bg-light text-end fw-bold"
+                [(ngModel)]="row.unit_cost" [placeholder]="placeholder(row.plan?.unit_cost)" min="0"
+              [class.is-invalid]="(row.unit_cost ?? 0) < 0" title="ต้องเป็นตัวเลขที่ไม่ติดลบ">
+            </div>
+            <span class="times-sign align-self-center">=</span>
+            <div class="field-amount">
+              <label class="form-label small text-muted mb-1">มูลค่าต่อเดือน</label>
+              <div class="form-control form-control-sm rounded-3 text-end fw-bold computed-value">
+                ฿{{ monthly(row) | number:'1.0-2' }}
+              </div>
+            </div>
+          </ng-container>
+
+          <div class="row-total-box ms-md-auto text-end">
+            <small class="text-muted d-block">รวมรายการนี้</small>
+            <strong class="row-total fs-6">฿{{ total(row) | number:'1.0-0' }}</strong>
+            <small *ngIf="source === 'indirect' && row.repeat" class="text-muted d-block">
+              ≈ ฿{{ monthly(row) * 12 | number:'1.0-0' }} ต่อปี
+            </small>
+          </div>
+        </div>
+
+        <!-- ค่าตามแผน (เฉพาะตอนกรอกผลจริง) -->
+        <div *ngIf="row.plan" class="plan-hint rounded-3 mt-3 px-3 py-2 d-flex flex-wrap align-items-center gap-2 small">
+          <i class="bi bi-clipboard-check"></i>
+          <span>แผนไว้: <strong>฿{{ planMonthly(row) | number:'1.0-0' }}</strong>{{ row.plan.period_from !== row.plan.period_to ? '/เดือน' : '' }}
+            · {{ planPeriod(row) }}</span>
+          <button type="button" class="btn btn-link btn-sm p-0 ms-auto" (click)="usePlan(row)">
+            <i class="bi bi-arrow-down-circle me-1"></i>ใช้ตัวเลขตามแผน
+          </button>
+        </div>
+
+        <div class="ledger-share-track mt-2" *ngIf="share(row) > 0">
           <div class="ledger-share-fill" [style.width.%]="share(row)"></div>
         </div>
       </div>
@@ -122,7 +160,7 @@
 
     <div class="section-total rounded-3 p-3 mt-3 d-flex justify-content-between align-items-center">
       <span class="fw-bold">รวม{{ meta.title }}</span>
-      <span class="fw-bold fs-5">฿{{ sectionTotal | number:'1.0-2' }}</span>
+      <span class="fw-bold fs-5">฿{{ sectionTotal | number:'1.0-0' }}</span>
     </div>
   </div>
 </div>

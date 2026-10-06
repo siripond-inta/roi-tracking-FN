@@ -57,7 +57,7 @@
           </button>
           <button *ngIf="isOwner && project.project_status === 'in_progress'" (click)="changeStatus('completed')"
             class="btn btn-outline-success rounded-pill px-4">
-            <i class="bi bi-flag me-2"></i>สิ้นสุดโครงการ
+            <i class="bi bi-flag me-2"></i>ปิดโครงการ (Completed)
           </button>
           <button *ngIf="isOwner && isLockedStatus" (click)="changeStatus('in_progress')"
             class="btn btn-outline-secondary rounded-pill px-4">
@@ -82,36 +82,65 @@
     </div>
 
     <div *ngIf="isOwner && mode === 'view' && isLockedStatus" class="alert alert-light border rounded-3 small py-2 px-3 no-print">
-      <i class="bi bi-lock-fill me-1"></i>โครงการสิ้นสุดแล้ว ข้อมูลถูกล็อกไม่ให้แก้ไข — กด "เปิดโครงการอีกครั้ง" ถ้าต้องการแก้ไข
+      <i class="bi bi-lock-fill me-1"></i>โครงการอยู่ในสถานะ Completed ข้อมูลถูกล็อกไม่ให้แก้ไข — กด "เปิดโครงการอีกครั้ง" ถ้าต้องการแก้ไข
+    </div>
+
+    <!-- ─── สรุปแบบอ่านง่าย ────────────────────────────────────────────────── -->
+    <div *ngIf="shown && lastActualPeriod > 0 && mode === 'view'" class="card border-0 shadow-sm rounded-4 p-3 p-md-4 mb-3 plain-summary"
+      [class.is-bad]="overallResult === 'below'" [class.is-neutral]="overallResult === 'equal'">
+      <div class="d-flex align-items-center flex-wrap gap-2 mb-2 verdict fw-bold">
+        <i class="bi" [ngClass]="overallResult === 'below' ? 'bi-arrow-down-circle-fill text-danger' : overallResult === 'above' ? 'bi-arrow-up-circle-fill text-success' : 'bi-dash-circle-fill text-secondary'"></i>
+        <span *ngIf="overallResult">ผลจริงถึงเดือนที่ {{ lastActualPeriod }}
+          <span [ngClass]="overallResult === 'below' ? 'text-danger' : overallResult === 'above' ? 'text-success' : 'text-secondary'">{{ comparisonLabel(overallResult) }}</span>
+        </span>
+        <small class="text-muted fw-normal">({{ monthName(lastActualPeriod) }}) · เทียบ ROI กับแผนช่วงเดียวกัน</small>
+      </div>
+      <ul class="mb-0 ps-4">
+        <li>จ่ายไปแล้ว <strong>{{ shown.totalExpense | baht }}</strong> ได้ผลประโยชน์กลับมา
+          <strong class="text-success">{{ shown.totalRevenue | baht }}</strong></li>
+        <li>ROI จริง <strong [ngClass]="(shown.roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">{{ shown.roi | pct }}</strong>
+          เทียบกับแผนช่วงเดียวกัน {{ analytics?.summary?.estimatedToDate?.roi | pct }}
+          <ng-container *ngIf="targetRoi !== null"> · เป้าหมาย {{ targetRoi }}%</ng-container></li>
+        <li *ngIf="worthwhileBasis === 'projected' && projected">คาดการณ์ทั้งโครงการ (ผลจริง + แผนเดือนที่เหลือ) ROI
+          <strong [ngClass]="(projected.roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">{{ projected.roi | pct }}</strong>
+          <ng-container *ngIf="isWorthwhile !== null"> —
+            <span [ngClass]="isWorthwhile ? 'text-success' : 'text-danger'">{{ isWorthwhile ? 'มีแนวโน้มคุ้มค่า' : 'มีแนวโน้มไม่คุ้มค่า' }}</span>ตามเป้า
+          </ng-container></li>
+        <li *ngIf="shown.paybackMonths != null">ระยะคืนทุน (สูตรเฉลี่ย) จากผลจริง <strong>{{ shown.paybackMonths | number:'1.1-1' }} เดือน</strong>
+          <ng-container *ngIf="est?.paybackMonths != null">&nbsp;(แผนทั้งโครงการ {{ est?.paybackMonths | number:'1.1-1' }} เดือน)</ng-container></li>
+        <li *ngIf="shown.paybackMonths == null">ยังไม่มีผลประโยชน์จริง จึงยังคำนวณระยะคืนทุนไม่ได้</li>
+        <li *ngIf="shown.totalExpense > 0">
+          <ng-container *ngIf="shown.breakEvenMonth != null">เงินสะสมจริงกลับมาเป็นบวกแล้ว — คุ้มทุนประมาณเดือนที่ <strong>{{ shown.breakEvenMonth | number:'1.1-1' }}</strong></ng-container>
+          <ng-container *ngIf="shown.breakEvenMonth == null">ณ เดือนที่ {{ lastActualPeriod }} เงินสะสมจริงยัง<strong class="text-danger">ติดลบ {{ (0 - shown.netProfit) | baht }}</strong> — ยังไม่ถึงจุดคุ้มทุน</ng-container>
+        </li>
+      </ul>
     </div>
 
     <!-- ─── KPI ผลจริง ─────────────────────────────────────────────────────── -->
     <app-kpi-cards class="d-block mb-2" [summary]="shown" label="จริง"
-      [targetRoi]="targetRoi" [worthwhile]="isWorthwhile"></app-kpi-cards>
+      [targetRoi]="targetRoi" [worthwhile]="isWorthwhile" [worthwhileNote]="worthwhileNote"></app-kpi-cards>
 
     <div class="preview-status small text-muted mb-3 no-print">
       <ng-container *ngIf="mode === 'edit' && draft">
         <span *ngIf="draft.previewLoading"><span class="spinner-border spinner-border-sm me-1"></span>กำลังคำนวณผลลัพธ์...</span>
-        <span *ngIf="!draft.previewLoading && !draft.previewError"><i class="bi bi-check2-circle text-success me-1"></i>ตัวเลขด้านบนคำนวณจากรายการที่กำลังกรอก (ยังไม่บันทึก)</span>
+        <span *ngIf="!draft.previewLoading && !draft.previewError"><i class="bi bi-check2-circle text-success me-1"></i>ตัวเลขด้านบนอัปเดตตามที่กำลังกรอก (ยังไม่บันทึก)</span>
       </ng-container>
     </div>
     <div *ngIf="mode === 'edit' && draft?.previewError" class="alert alert-danger rounded-3 small py-2 px-3">
       <i class="bi bi-exclamation-circle me-1"></i>{{ draft?.previewError }}
     </div>
 
-    <app-benefit-summary class="d-block mb-4" [summary]="shown" [counted]="counted"
-      [projectType]="project.project_type" phaseLabel="ผลจริง"></app-benefit-summary>
-
     <!-- ─── โหมดแก้ไข ─────────────────────────────────────────────────────── -->
     <div *ngIf="mode === 'edit' && draft" class="d-flex flex-column gap-4 mb-4">
       <div class="alert alert-info rounded-3 small py-2 px-3 mb-0">
         <i class="bi bi-info-circle me-1"></i>
-        เลือกช่วงเดือนที่เกิดขึ้นจริง และกรอกยอด/ปริมาณจริงต่อเดือน — ระบบเตรียมหมวดหมู่และอัตราต่อหน่วยจากแผนไว้ให้แล้ว
+        รายการด้านล่างเตรียมไว้ตามแผนแล้ว — <strong>ตัวเลขสีจาง</strong>ในช่องคือค่าตามแผน กรอกตัวเลขที่เกิดขึ้นจริงทับได้เลย
+        (หรือกด "ใช้ตัวเลขตามแผน" ถ้าเป็นไปตามแผน) รายการที่เว้นว่างไว้จะไม่ถูกบันทึก
       </div>
       <ng-container *ngFor="let s of sources">
         <app-ledger-section-editor *ngIf="showSection(s, draft.rows)"
           [source]="s" [rows]="draft.rows[s]" [categories]="allCategories"
-          [durationMonths]="project.duration_months" [counted]="isCounted(s)" phaseLabel="ผลจริง"
+          [durationMonths]="project.duration_months" [startDate]="project.created_at" [counted]="isCounted(s)" phaseLabel="ผลจริง"
           (changed)="draft.changed()"></app-ledger-section-editor>
       </ng-container>
 
@@ -129,89 +158,118 @@
     <!-- ─── โหมดดูผล ───────────────────────────────────────────────────────── -->
     <ng-container *ngIf="mode === 'view' && analytics">
 
-      <!-- FR05-1: กราฟสรุปผล -->
+      <!-- แผน vs จริง (ช่วงเดียวกัน) — ตารางสั้นๆ 4 แถว -->
       <div class="row g-4 mb-4">
-        <div class="col-12 col-xl-7">
+        <div class="col-12 col-xl-5">
           <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
             <div class="card-header bg-white py-3 px-4 border-bottom">
-              <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-success"></i>แนวโน้ม ROI สะสมรายเดือน</h6>
-              <small class="text-muted">เส้นประ = ตามแผน · เส้นทึบ = เกิดขึ้นจริง</small>
+              <h6 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2 text-success"></i>แผน vs จริง</h6>
+              <small class="text-muted">เทียบช่วงเดียวกัน: เดือนที่ 1–{{ lastActualPeriod }}</small>
             </div>
-            <div class="card-body p-3">
-              <div class="chart-screen-only" [class.has-print-image]="chartImages[0]" style="height: 300px">
-                <canvas baseChart type="line" [data]="roiTrendChartData" [options]="roiTrendChartOptions"></canvas>
-              </div>
-              <img *ngIf="chartImages[0]" class="chart-print-only" [src]="chartImages[0]" alt="แนวโน้ม ROI สะสมรายเดือน">
+            <div class="table-responsive">
+              <table class="table align-middle mb-0 compare-table">
+                <thead class="table-light text-muted small">
+                  <tr><th class="ps-4"></th><th class="text-end">แผน</th><th class="text-end">จริง</th><th class="text-center pe-4">ผล</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let r of compareRows">
+                    <td class="ps-4 fw-semibold">{{ r.label }}</td>
+                    <td class="text-end text-muted">
+                      <ng-container *ngIf="r.unit === 'percent'">{{ r.plan | pct }}</ng-container>
+                      <ng-container *ngIf="r.unit === 'months'">{{ r.plan != null ? (r.plan | number:'1.1-1') + ' เดือน' : '—' }}</ng-container>
+                      <ng-container *ngIf="r.unit === 'baht'">{{ r.plan | baht }}</ng-container>
+                    </td>
+                    <td class="text-end fw-bold">
+                      <ng-container *ngIf="r.unit === 'percent'">{{ r.actual | pct }}</ng-container>
+                      <ng-container *ngIf="r.unit === 'months'">{{ r.actual != null ? (r.actual | number:'1.1-1') + ' เดือน' : '—' }}</ng-container>
+                      <ng-container *ngIf="r.unit === 'baht'">{{ r.actual | baht }}</ng-container>
+                    </td>
+                    <td class="text-center pe-4">
+                      <span *ngIf="r.plan != null && r.actual != null" class="badge rounded-pill text-nowrap" [ngClass]="comparisonClass(rowResult(r)!, r.higherIsBetter)">
+                        <i class="bi" [ngClass]="comparisonIcon(rowResult(r)!)"></i>
+                        {{ comparisonLabel(rowResult(r)!) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
-        <div class="col-12 col-xl-5">
+        <!-- เงินสะสม แผน vs จริง -->
+        <div class="col-12 col-xl-7">
           <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
             <div class="card-header bg-white py-3 px-4 border-bottom">
-              <h6 class="fw-bold mb-0"><i class="bi bi-bar-chart-fill me-2 text-success"></i>ผลประโยชน์รายหมวด</h6>
-              <small class="text-muted">แผนถึงเดือนที่ {{ lastActualPeriod }} vs เกิดขึ้นจริง</small>
+              <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-success"></i>เงินสะสม: แผน vs จริง</h6>
+              <small class="text-muted">เส้นประ = ตามแผน · เส้นเขียว = เกิดขึ้นจริง</small>
             </div>
             <div class="card-body p-3">
-              <div class="chart-screen-only" [class.has-print-image]="chartImages[1]" style="height: 300px">
-                <canvas baseChart type="bar" [data]="benefitChartData" [options]="benefitChartOptions"></canvas>
-              </div>
-              <img *ngIf="chartImages[1]" class="chart-print-only" [src]="chartImages[1]" alt="ผลประโยชน์รายหมวด">
+              <app-cashflow-chart [monthly]="analytics.monthly" [showActual]="true"
+                [lastActualPeriod]="lastActualPeriod" [startDate]="project.created_at"></app-cashflow-chart>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- FR05-2: เปรียบเทียบแผน vs จริง รายหมวด แยกตามแหล่ง -->
+      <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-5">
+          <app-benefit-summary class="d-block h-100" [summary]="shown" [counted]="counted"
+            [projectType]="project.project_type" phaseLabel="ผลจริง"></app-benefit-summary>
+        </div>
+        <div class="col-12 col-xl-7">
+          <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+            <div class="card-header bg-white py-3 px-4 border-bottom">
+              <h6 class="fw-bold mb-0"><i class="bi bi-bar-chart-fill me-2 text-success"></i>ผลประโยชน์แต่ละรายการ</h6>
+              <small class="text-muted">แท่งเทา = แผน (ถึงเดือนที่ {{ lastActualPeriod }}) · แท่งสี = เกิดขึ้นจริง</small>
+            </div>
+            <div class="card-body p-3">
+              <div class="chart-screen-only" [class.has-print-image]="chartImages[0]" style="height: 280px">
+                <canvas baseChart type="bar" [data]="benefitChartData" [options]="benefitChartOptions"></canvas>
+              </div>
+              <img *ngIf="chartImages[0]" class="chart-print-only" [src]="chartImages[0]" alt="ผลประโยชน์แต่ละรายการ">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- เปรียบเทียบรายหมวด -->
       <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 print-allow-break">
         <div class="card-header bg-white py-3 px-4 border-bottom">
-          <h6 class="fw-bold mb-0"><i class="bi bi-layout-text-sidebar-reverse me-2 text-success"></i>Estimated vs Actual รายหมวด</h6>
-          <small class="text-muted">
-            ส่วนต่างเทียบกับแผน "ถึงเดือนที่ {{ lastActualPeriod }}" (เดือนล่าสุดที่มีผลจริง) — แผนทั้งโครงการแสดงไว้อ้างอิง
-          </small>
+          <h6 class="fw-bold mb-0"><i class="bi bi-layout-text-sidebar-reverse me-2 text-success"></i>แผน vs จริง รายหมวด</h6>
+          <small class="text-muted">เทียบกับแผนช่วงเดียวกัน (เดือนที่ 1–{{ lastActualPeriod }})</small>
         </div>
         <div class="table-responsive">
           <table class="table align-middle mb-0 text-nowrap">
             <thead class="table-light text-muted small">
               <tr>
-                <th class="ps-4">หมวดหมู่</th>
-                <th class="text-end">แผนทั้งโครงการ</th>
-                <th class="text-end">แผนถึงเดือนที่ {{ lastActualPeriod }}</th>
+                <th class="ps-4">รายการ</th>
+                <th class="text-end">แผน</th>
                 <th class="text-end">จริง</th>
-                <th class="text-end">ส่วนต่าง</th>
-                <th class="text-center pe-4">สถานะ</th>
+                <th class="text-end">ต่าง</th>
+                <th class="text-center pe-4">ผล</th>
               </tr>
             </thead>
             <ng-container *ngFor="let s of sources">
               <tbody *ngIf="categoriesOf(s).length > 0">
                 <tr class="table-group-row">
-                  <td colspan="6" class="ps-4 fw-bold small">
+                  <td colspan="5" class="ps-4 fw-bold small">
                     <i class="bi me-1" [ngClass]="sectionMeta[s].icon"></i>{{ sectionMeta[s].title }}
                     <span *ngIf="!isCounted(s)" class="badge bg-warning text-dark ms-2">ไม่นับตามประเภทโครงการ</span>
                   </td>
                 </tr>
                 <tr *ngFor="let c of categoriesOf(s)">
                   <td class="ps-4">{{ c.category_name }}</td>
-                  <td class="text-end text-secondary">฿{{ c.estimated | number:'1.0-0' }}</td>
-                  <td class="text-end">฿{{ c.estimatedToDate | number:'1.0-0' }}</td>
-                  <td class="text-end fw-bold">฿{{ c.actual | number:'1.0-0' }}</td>
-                  <td class="text-end fw-bold" [ngClass]="varianceGood(c) ? 'text-success' : 'text-danger'">
-                    {{ c.varianceToDate >= 0 ? '+' : '' }}฿{{ c.varianceToDate | number:'1.0-0' }}
+                  <td class="text-end text-muted">{{ c.estimatedToDate | baht }}</td>
+                  <td class="text-end fw-bold">{{ c.actual | baht }}</td>
+                  <td class="text-end fw-bold" [ngClass]="varianceTextClass(c)">
+                    {{ c.varianceToDate > 0 ? '+' : '' }}{{ c.varianceToDate | baht }}
                   </td>
                   <td class="text-center pe-4">
-                    <span class="badge rounded-pill"
-                      [ngClass]="varianceGood(c) ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
-                      {{ varianceLabel(c) }}
+                    <span class="badge rounded-pill text-nowrap" [ngClass]="categoryClass(c)">
+                      {{ categoryLabel(c) }}
                     </span>
                   </td>
-                </tr>
-                <tr class="fw-bold small">
-                  <td class="ps-4">รวม{{ sectionMeta[s].title }}</td>
-                  <td class="text-end">฿{{ sumOf(categoriesOf(s), 'estimated') | number:'1.0-0' }}</td>
-                  <td class="text-end">฿{{ sumOf(categoriesOf(s), 'estimatedToDate') | number:'1.0-0' }}</td>
-                  <td class="text-end">฿{{ sumOf(categoriesOf(s), 'actual') | number:'1.0-0' }}</td>
-                  <td class="text-end">{{ sumOf(categoriesOf(s), 'varianceToDate') >= 0 ? '+' : '' }}฿{{ sumOf(categoriesOf(s), 'varianceToDate') | number:'1.0-0' }}</td>
-                  <td></td>
                 </tr>
               </tbody>
             </ng-container>
@@ -219,96 +277,54 @@
         </div>
       </div>
 
-      <!-- FR04-1: กระแสเงินสดรายเดือน + ส่วนต่างสะสม -->
+      <!-- รายการผลจริงที่บันทึก — ส่วนประโยชน์ทางอ้อมแจกแจง ปริมาณ × อัตรา -->
+      <h6 class="fw-bold text-muted text-uppercase small mb-3">รายการผลจริงที่บันทึกไว้</h6>
+      <div class="d-flex flex-column gap-4 mb-4">
+        <ng-container *ngFor="let s of sources">
+          <app-ledger-section-view *ngIf="showSection(s, savedRows)"
+            [source]="s" [rows]="savedRows[s]" [categories]="allCategories" [startDate]="project.created_at"
+            [counted]="isCounted(s)" phaseLabel="ผลจริง" [summarize]="true"></app-ledger-section-view>
+        </ng-container>
+      </div>
+
+      <!-- ตารางตัวเลขรายเดือน — พับเก็บไว้ (บน PDF แสดงเต็ม) -->
       <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 print-allow-break">
-        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <h6 class="fw-bold mb-0"><i class="bi bi-cash-coin me-2 text-success"></i>กระแสเงินสดรายเดือน และความคลาดเคลื่อน</h6>
-          <small class="text-muted">
-            <span *ngIf="act?.paybackMonth != null">คืนทุนจริงเดือนที่ {{ act?.paybackMonth }}</span>
-            <span *ngIf="act?.paybackMonth == null">ยังไม่ถึงจุดคืนทุน</span>
-            <span *ngIf="est?.paybackMonth != null"> · แผนคืนทุนเดือนที่ {{ est?.paybackMonth }}</span>
-          </small>
+        <div class="card-header bg-white py-3 px-4 details-toggle d-flex justify-content-between align-items-center"
+          [class.open]="showMonthlyTable" (click)="showMonthlyTable = !showMonthlyTable"
+          role="button" [attr.aria-expanded]="showMonthlyTable">
+          <div>
+            <h6 class="fw-bold mb-0"><i class="bi bi-table me-2 text-success"></i>ตารางรายเดือน แผน vs จริง (ละเอียด)</h6>
+            <small class="text-muted no-print">{{ showMonthlyTable ? 'คลิกเพื่อซ่อน' : 'คลิกเพื่อดูตัวเลขทีละเดือน' }}</small>
+          </div>
+          <i class="bi bi-chevron-down no-print"></i>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive print-show" [hidden]="!showMonthlyTable">
           <table class="table align-middle mb-0 text-nowrap">
             <thead class="table-light text-muted small">
               <tr>
-                <th class="ps-4" rowspan="2">เดือนที่</th>
-                <th class="text-end" colspan="2">ประมาณการ</th>
-                <th class="text-end" colspan="2">เกิดขึ้นจริง</th>
-                <th class="text-end" colspan="2">ส่วนต่าง (จริง − แผน)</th>
-              </tr>
-              <tr>
-                <th class="text-end">NCF</th>
-                <th class="text-end">สะสม</th>
-                <th class="text-end">NCF</th>
-                <th class="text-end">สะสม</th>
-                <th class="text-end">รายเดือน</th>
-                <th class="text-end pe-4">สะสม</th>
+                <th class="ps-4">เดือน</th>
+                <th class="text-end">คงเหลือ (แผน)</th>
+                <th class="text-end">คงเหลือ (จริง)</th>
+                <th class="text-end">เงินสะสม (แผน)</th>
+                <th class="text-end pe-4">เงินสะสม (จริง)</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let m of analytics.monthly" [class.table-success]="act?.paybackMonth === m.period">
-                <td class="ps-4 fw-bold">
-                  {{ m.period }}
-                  <i *ngIf="act?.paybackMonth === m.period" class="bi bi-flag-fill text-success ms-1" title="เดือนที่คืนทุน"></i>
+              <tr *ngFor="let m of analytics.monthly">
+                <td class="ps-4">
+                  <span class="fw-bold">{{ m.period }}</span> <small class="text-muted">{{ monthName(m.period) }}</small>
                 </td>
-                <td class="text-end text-secondary">฿{{ m.estimated.ncf | number:'1.0-0' }}</td>
-                <td class="text-end text-secondary">฿{{ m.estimated.cumulative | number:'1.0-0' }}</td>
+                <td class="text-end text-muted">{{ m.estimated.ncf | baht }}</td>
                 <td class="text-end fw-bold" [ngClass]="m.actual.ncf >= 0 ? 'text-success' : 'text-danger'">
-                  <span *ngIf="m.actual.hasData">฿{{ m.actual.ncf | number:'1.0-0' }}</span>
-                  <span *ngIf="!m.actual.hasData" class="text-muted fw-normal">—</span>
+                  {{ m.actual.hasData ? (m.actual.ncf | baht) : '—' }}
                 </td>
-                <td class="text-end fw-bold" [ngClass]="m.actual.cumulative >= 0 ? 'text-dark' : 'text-danger'">
-                  <span *ngIf="m.actual.hasData">฿{{ m.actual.cumulative | number:'1.0-0' }}</span>
-                  <span *ngIf="!m.actual.hasData" class="text-muted fw-normal">—</span>
-                </td>
-                <td class="text-end fw-bold" [ngClass]="m.variance.ncf >= 0 ? 'text-success' : 'text-danger'">
-                  <span *ngIf="m.actual.hasData">{{ m.variance.ncf >= 0 ? '+' : '' }}฿{{ m.variance.ncf | number:'1.0-0' }}</span>
-                  <span *ngIf="!m.actual.hasData" class="text-muted fw-normal">—</span>
-                </td>
-                <td class="text-end fw-bold pe-4" [ngClass]="m.variance.cumulative >= 0 ? 'text-success' : 'text-danger'">
-                  <span *ngIf="m.actual.hasData">{{ m.variance.cumulative >= 0 ? '+' : '' }}฿{{ m.variance.cumulative | number:'1.0-0' }}</span>
-                  <span *ngIf="!m.actual.hasData" class="text-muted fw-normal">—</span>
+                <td class="text-end text-muted">{{ m.estimated.cumulative | baht }}</td>
+                <td class="text-end fw-bold pe-4" [ngClass]="m.actual.cumulative >= 0 ? 'text-dark' : 'text-danger'">
+                  {{ m.actual.hasData ? (m.actual.cumulative | baht) : '—' }}
                 </td>
               </tr>
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <!-- รายการผลจริงที่บันทึก — ส่วนประโยชน์ทางอ้อมแจกแจง ปริมาณ × อัตรา -->
-      <div class="d-flex flex-column gap-4 mb-4">
-        <ng-container *ngFor="let s of sources">
-          <app-ledger-section-view *ngIf="showSection(s, savedRows)"
-            [source]="s" [rows]="savedRows[s]" [categories]="allCategories"
-            [counted]="isCounted(s)" phaseLabel="ผลจริง"></app-ledger-section-view>
-        </ng-container>
-      </div>
-
-      <!-- สรุปท้ายรายงาน -->
-      <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 text-white summary-hero">
-        <div class="row text-center g-3 align-items-center">
-          <div class="col-md-4">
-            <small class="opacity-75 fw-bold text-uppercase d-block" style="font-size:.7rem">ผลประโยชน์สุทธิ (แผน)</small>
-            <div class="fs-3 fw-bold">฿{{ est?.netProfit | number:'1.0-0' }}</div>
-            <small class="opacity-75">ROI: {{ est?.roi | number:'1.1-1' }}%</small>
-          </div>
-          <div class="col-md-4 border-start border-end border-white border-opacity-25">
-            <small class="opacity-75 fw-bold text-uppercase d-block" style="font-size:.7rem">ผลประโยชน์สุทธิ (จริง)</small>
-            <div class="fs-3 fw-bold">฿{{ act?.netProfit | number:'1.0-0' }}</div>
-            <small class="opacity-75">ROI: {{ act?.roi | number:'1.1-1' }}%</small>
-          </div>
-          <div class="col-md-4">
-            <small class="opacity-75 fw-bold text-uppercase d-block" style="font-size:.7rem">ผลลัพธ์ vs แผน</small>
-            <div class="fs-3 fw-bold d-flex align-items-center justify-content-center gap-1">
-              <i class="bi" [ngClass]="(analytics.summary.variance.netProfit >= 0) ? 'bi-arrow-up-short' : 'bi-arrow-down-short'"></i>
-              {{ analytics.summary.variance.netProfit >= 0 ? '+' : '' }}฿{{ analytics.summary.variance.netProfit | number:'1.0-0' }}
-            </div>
-            <small class="opacity-75">
-              ROI Delta: {{ analytics.summary.variance.roi >= 0 ? '+' : '' }}{{ analytics.summary.variance.roi | number:'1.1-1' }}%
-            </small>
-          </div>
         </div>
       </div>
     </ng-container>

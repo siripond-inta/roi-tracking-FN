@@ -16,7 +16,10 @@
 .kpi-icon-info { background: rgba(13, 110, 253, 0.1); color: #0d6efd; }
 .kpi-icon-neutral { background: rgba(108, 117, 125, 0.1); color: #6c757d; }
 
-.kpi-label { font-size: 0.68rem; }
+.kpi-label { font-size: 0.78rem; }
+/* ตัวเลขเป็นพระเอกของการ์ด — ใหญ่และหนา ไม่มีข้อความสูตรกำกับ (สูตรอยู่ใน tooltip) */
+.kpi-number { font-size: clamp(1.25rem, 1.6vw, 1.7rem); line-height: 1.2; letter-spacing: -0.3px; }
+.kpi-card { cursor: help; }
 .kpi-value { font-size: 1.3rem; }
 .kpi-value-lg { font-size: 1.5rem; }
 
@@ -38,6 +41,9 @@
 
 @media print {
   .btn, button, .no-print { display: none !important; }
+  /* ส่วนที่พับเก็บไว้บนจอ ให้แสดงเต็มใน PDF */
+  .print-show[hidden] { display: block !important; }
+  .chart-legend-help { display: none !important; }
   .print-header { display: block !important; }
 
   /* ตอนพิมพ์ใช้รูปแทน canvas (canvas วาดใหม่ไม่ทันตอนเปลี่ยนเป็น layout กระดาษ)
@@ -66,6 +72,27 @@
 }
 
 .indirect-text { color: #0f7b8a; }
+
+.legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 0.35rem; vertical-align: middle; }
+.legend-swatch.below { background: rgba(220, 53, 69, 0.55); }
+.legend-swatch.above { background: #198754; }
+
+/* สรุปแบบอ่านง่ายด้านบนของรายงาน */
+.plain-summary { border-left: 5px solid #198754; }
+.plain-summary.is-bad { border-left-color: #dc3545; }
+.plain-summary.is-neutral { border-left-color: #adb5bd; }
+.plain-summary .verdict { font-size: 1.25rem; }
+.plain-summary li { margin-bottom: 0.35rem; }
+
+/* ส่วนรายละเอียดที่พับเก็บไว้ (ตารางตัวเลขรายเดือน) */
+.details-toggle { cursor: pointer; user-select: none; }
+.details-toggle .bi-chevron-down { transition: transform 0.2s ease; }
+.details-toggle.open .bi-chevron-down { transform: rotate(180deg); }
+
+/* ตารางแผน vs จริง */
+.compare-table td, .compare-table th { vertical-align: middle; }
+.delta-good { color: #198754; }
+.delta-bad { color: #dc3545; }
 
 .summary-hero { background: linear-gradient(135deg, #1a6b3c, #28a745); }
 .table-group-row td { background: #f8f9fa !important; color: #495057; }

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { PROJECT_STATUS_LABELS, Project, ProjectLedger } from '../../../models/roi-tracking-model';
@@ -19,6 +19,7 @@ import {
   LedgerRowsBySource,
   SOURCE_ORDER,
   blankRow,
+  calendarMonth,
   categoriesForSource,
   groupLedgers,
   splitBySource,
@@ -26,12 +27,20 @@ import {
 import { LedgerDraft } from '../ledger-draft';
 import { BenefitSummary, LedgerSectionEditor, LedgerSectionView } from '../shared/ledger-sections';
 import { KpiCards } from '../shared/kpi-cards';
+import { CashflowChart } from '../shared/cashflow-chart';
+import { BahtPipe } from '../shared/baht.pipe';
+import { PctPipe } from '../shared/pct.pipe';
+import { showReportLoadError } from '../shared/load-error';
+import { isRoiWorthwhile } from '../shared/plan-compare';
 
 export type { LedgerRow };
 
 @Component({
   selector: 'app-estimated-report',
-  imports: [CommonModule, RouterModule, LedgerSectionEditor, LedgerSectionView, BenefitSummary, KpiCards],
+  imports: [
+    CommonModule, RouterModule, LedgerSectionEditor, LedgerSectionView, BenefitSummary, KpiCards,
+    CashflowChart, BahtPipe, PctPipe,
+  ],
   templateUrl: './estimated-report.html',
   styleUrl: '../report-shared.css',
 })
@@ -53,6 +62,14 @@ export class EstimatedReport implements OnInit, OnDestroy {
 
   readonly sources = SOURCE_ORDER;
   readonly statusLabels = PROJECT_STATUS_LABELS;
+
+  // ตารางตัวเลขรายเดือนพับเก็บไว้ก่อน (ผู้ใช้ส่วนใหญ่ดูแค่กราฟ) — ตอนพิมพ์แสดงเต็ม
+  showMonthlyTable = false;
+  @ViewChild(CashflowChart) private cashflowChart?: CashflowChart;
+
+  monthName(period: number | null | undefined): string {
+    return period ? calendarMonth(this.project?.created_at, period) : '';
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -83,8 +100,7 @@ export class EstimatedReport implements OnInit, OnDestroy {
 
   // FR04-4: หน้านี้เทียบเป้าหมายกับ ROI ประมาณการเสมอ (หน้า Actual เทียบกับผลจริง)
   get isWorthwhile(): boolean | null {
-    if (this.targetRoi == null || !this.shown) return null;
-    return this.shown.roi >= this.targetRoi;
+    return isRoiWorthwhile(this.shown, this.targetRoi);
   }
 
   get hasActualData(): boolean {
@@ -137,9 +153,9 @@ export class EstimatedReport implements OnInit, OnDestroy {
           this.startEdit();
         }
       },
-      error: () => {
+      error: (err) => {
         this.isLoading = false;
-        Swal.fire({ icon: 'error', title: 'โหลดข้อมูลไม่สำเร็จ', text: 'กรุณาลองใหม่อีกครั้ง' });
+        showReportLoadError(err, this.router);
       },
     });
   }
@@ -241,7 +257,14 @@ export class EstimatedReport implements OnInit, OnDestroy {
 
   // ─── พิมพ์ / บันทึกเป็น PDF ────────────────────────────────────────────────
   printReport(): void {
-    window.print();
+    // กราฟเป็น canvas — แปลงเป็นรูปก่อนพิมพ์ ไม่งั้นมักออกมาเป็นช่องว่างใน PDF
+    this.cashflowChart?.prepareForPrint();
+    const restore = () => {
+      this.cashflowChart?.clearPrintImage();
+      window.removeEventListener('afterprint', restore);
+    };
+    window.addEventListener('afterprint', restore);
+    setTimeout(() => window.print(), 250);
   }
 
   get today(): Date {

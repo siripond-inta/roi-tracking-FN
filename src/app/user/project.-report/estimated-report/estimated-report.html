@@ -79,33 +79,57 @@
       <i class="bi bi-lock-fill me-1"></i>ประมาณการถูกล็อกแล้ว เพราะเริ่มบันทึกผลจริง (Actual) แล้ว
     </div>
     <div *ngIf="isOwner && mode === 'view' && !hasActualData && isLockedStatus" class="alert alert-light border rounded-3 small py-2 px-3 no-print">
-      <i class="bi bi-lock-fill me-1"></i>โครงการสิ้นสุดแล้ว — เปลี่ยนสถานะเป็น "กำลังดำเนินการ" ที่หน้า Projects เพื่อแก้ไขข้อมูล
+      <i class="bi bi-lock-fill me-1"></i>โครงการอยู่ในสถานะ Completed — เปลี่ยนสถานะกลับเป็น Actual ที่หน้า Projects เพื่อแก้ไขข้อมูล
+    </div>
+
+    <!-- ─── สรุปแบบอ่านง่าย (ผู้ใช้ครั้งแรกอ่านตรงนี้ก่อนตัวเลขอื่น) ─────────────────── -->
+    <div *ngIf="shown" class="card border-0 shadow-sm rounded-4 p-3 p-md-4 mb-3 plain-summary"
+      [class.is-bad]="isWorthwhile === false" [class.is-neutral]="isWorthwhile === null">
+      <div class="d-flex align-items-center gap-2 mb-2 verdict fw-bold">
+        <i class="bi" [ngClass]="isWorthwhile === false ? 'bi-x-circle-fill text-danger' : isWorthwhile ? 'bi-check-circle-fill text-success' : 'bi-info-circle-fill text-secondary'"></i>
+        <span *ngIf="isWorthwhile === true">ถ้าเป็นไปตามแผน โครงการนี้ <span class="text-success">คุ้มค่า</span></span>
+        <span *ngIf="isWorthwhile === false">ถ้าเป็นไปตามแผน โครงการนี้ <span class="text-danger">ยังไม่คุ้มค่า</span></span>
+        <span *ngIf="isWorthwhile === null">สรุปผลตามแผน</span>
+      </div>
+      <ul class="mb-0 ps-4">
+        <li>ลงทุนทั้งหมด <strong>{{ shown.totalExpense | baht }}</strong> และได้ผลประโยชน์กลับมา
+          <strong class="text-success">{{ shown.totalRevenue | baht }}</strong> ภายใน {{ project.duration_months }} เดือน</li>
+        <li>ผลตอบแทน (ROI) <strong [ngClass]="(shown.roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">{{ shown.roi | pct }}</strong>
+          <ng-container *ngIf="targetRoi !== null && isWorthwhile !== null">
+            — {{ isWorthwhile ? 'ถึง' : 'ยังไม่ถึง' }}เป้าหมาย {{ targetRoi }}%
+          </ng-container>
+          <ng-container *ngIf="shown.roi == null"> (ยังไม่มีต้นทุน จึงคำนวณ ROI ไม่ได้)</ng-container></li>
+        <li *ngIf="shown.paybackMonths != null">ระยะคืนทุนประมาณ (สูตรเฉลี่ย) <strong>{{ shown.paybackMonths | number:'1.1-1' }} เดือน</strong>
+          <span *ngIf="shown.paybackMonths > project.duration_months" class="text-danger">
+            — นานกว่าระยะเวลาโครงการ ({{ project.duration_months }} เดือน)</span></li>
+        <li *ngIf="shown.paybackMonths == null">ยังไม่มีผลประโยชน์ จึงยังคำนวณระยะคืนทุนไม่ได้</li>
+        <li *ngIf="shown.totalExpense > 0">
+          <ng-container *ngIf="shown.breakEvenMonth != null">ตามกราฟเงินสะสม จะคุ้มทุนประมาณเดือนที่ <strong>{{ shown.breakEvenMonth | number:'1.1-1' }}</strong></ng-container>
+          <ng-container *ngIf="shown.breakEvenMonth == null">ตามแผน เงินสะสมยัง<span class="text-danger">ไม่กลับมาเป็นบวก</span>ภายในระยะเวลาโครงการ</ng-container>
+        </li>
+      </ul>
     </div>
 
     <!-- ─── KPI ─────────────────────────────────────────────────────────────── -->
-    <app-kpi-cards class="d-block mb-2" [summary]="shown" label="ประมาณการ"
+    <app-kpi-cards class="d-block mb-2" [summary]="shown" label="ตามแผน"
       [targetRoi]="targetRoi" [worthwhile]="isWorthwhile"></app-kpi-cards>
 
     <div class="preview-status small text-muted mb-3 no-print">
       <ng-container *ngIf="mode === 'edit' && draft">
         <span *ngIf="draft.previewLoading"><span class="spinner-border spinner-border-sm me-1"></span>กำลังคำนวณผลลัพธ์...</span>
-        <span *ngIf="!draft.previewLoading && !draft.previewError"><i class="bi bi-check2-circle text-success me-1"></i>ตัวเลขด้านบนคำนวณจากรายการที่กำลังกรอก (ยังไม่บันทึก)</span>
+        <span *ngIf="!draft.previewLoading && !draft.previewError"><i class="bi bi-check2-circle text-success me-1"></i>ตัวเลขด้านบนอัปเดตตามที่กำลังกรอก (ยังไม่บันทึก)</span>
       </ng-container>
     </div>
     <div *ngIf="mode === 'edit' && draft?.previewError" class="alert alert-danger rounded-3 small py-2 px-3">
       <i class="bi bi-exclamation-circle me-1"></i>{{ draft?.previewError }}
     </div>
 
-    <!-- ─── องค์ประกอบของผลประโยชน์ (รายได้โดยตรง / ทางอ้อม ตามประเภทโครงการ) ───── -->
-    <app-benefit-summary class="d-block mb-4" [summary]="shown" [counted]="counted"
-      [projectType]="project.project_type" phaseLabel="ประมาณการ"></app-benefit-summary>
-
     <!-- ─── โหมดแก้ไข: 3 ส่วน ──────────────────────────────────────────────── -->
     <div *ngIf="mode === 'edit' && draft" class="d-flex flex-column gap-4 mb-4">
       <ng-container *ngFor="let s of sources">
         <app-ledger-section-editor *ngIf="showSection(s, draft.rows)"
           [source]="s" [rows]="draft.rows[s]" [categories]="allCategories"
-          [durationMonths]="project.duration_months" [counted]="isCounted(s)"
+          [durationMonths]="project.duration_months" [startDate]="project.created_at" [counted]="isCounted(s)"
           (changed)="draft.changed()"></app-ledger-section-editor>
       </ng-container>
 
@@ -122,55 +146,73 @@
 
     <!-- ─── โหมดดูผล ───────────────────────────────────────────────────────── -->
     <ng-container *ngIf="mode === 'view' && analytics">
-      <!-- FR04-1: กระแสเงินสดรายเดือน + ยอดสะสม -->
-      <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 print-allow-break">
-        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <h6 class="fw-bold mb-0"><i class="bi bi-cash-coin me-2 text-success"></i>กระแสเงินสดรายเดือน (Net Cash Flow)</h6>
-          <small class="text-muted">
-            <span *ngIf="shown?.paybackMonth != null">คืนทุนเดือนที่ {{ shown?.paybackMonth }}</span>
-            <span *ngIf="shown?.paybackMonth == null">ยังไม่คืนทุนภายในระยะเวลาโครงการ</span>
-          </small>
+      <div class="row g-4 mb-4">
+        <!-- เงินสะสมรายเดือน: เส้นตัดขึ้นเหนือ 0 = คืนทุน -->
+        <div class="col-12 col-xl-7">
+          <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+            <div class="card-header bg-white py-3 px-4 border-bottom">
+              <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-success"></i>เงินสะสมตามแผน</h6>
+              <small class="text-muted">รวมเงินที่ได้ − เงินที่จ่าย ตั้งแต่เริ่มโครงการถึงแต่ละเดือน</small>
+            </div>
+            <div class="card-body p-3">
+              <app-cashflow-chart [monthly]="analytics.monthly" [startDate]="project.created_at"></app-cashflow-chart>
+            </div>
+          </div>
         </div>
-        <div class="table-responsive">
+        <!-- องค์ประกอบของผลประโยชน์ (รายได้โดยตรง / ทางอ้อม ตามประเภทโครงการ) -->
+        <div class="col-12 col-xl-5">
+          <app-benefit-summary class="d-block h-100" [summary]="shown" [counted]="counted"
+            [projectType]="project.project_type" phaseLabel="ตามแผน"></app-benefit-summary>
+        </div>
+      </div>
+
+      <!-- รายการที่บันทึกไว้ แยกตามแหล่ง — ส่วนประโยชน์ทางอ้อมเป็นตารางแจกแจง ปริมาณ × อัตรา -->
+      <h6 class="fw-bold text-muted text-uppercase small mb-3">รายการที่วางแผนไว้</h6>
+      <div class="d-flex flex-column gap-4 mb-4">
+        <ng-container *ngFor="let s of sources">
+          <app-ledger-section-view *ngIf="showSection(s, savedRows)"
+            [source]="s" [rows]="savedRows[s]" [categories]="allCategories" [startDate]="project.created_at"
+            [counted]="isCounted(s)" phaseLabel="ตามแผน"></app-ledger-section-view>
+        </ng-container>
+      </div>
+
+      <!-- ตารางตัวเลขรายเดือน — พับเก็บไว้ (บน PDF แสดงเต็ม) -->
+      <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 print-allow-break">
+        <div class="card-header bg-white py-3 px-4 details-toggle d-flex justify-content-between align-items-center"
+          [class.open]="showMonthlyTable" (click)="showMonthlyTable = !showMonthlyTable"
+          role="button" [attr.aria-expanded]="showMonthlyTable">
+          <div>
+            <h6 class="fw-bold mb-0"><i class="bi bi-table me-2 text-success"></i>ตารางรายเดือน (ละเอียด)</h6>
+            <small class="text-muted no-print">{{ showMonthlyTable ? 'คลิกเพื่อซ่อน' : 'คลิกเพื่อดูตัวเลขทีละเดือน' }}</small>
+          </div>
+          <i class="bi bi-chevron-down no-print"></i>
+        </div>
+        <div class="table-responsive print-show" [hidden]="!showMonthlyTable">
           <table class="table align-middle mb-0 text-nowrap">
             <thead class="table-light text-muted small">
               <tr>
-                <th class="ps-4">เดือนที่</th>
-                <th class="text-end" *ngIf="counted.direct">รายได้โดยตรง</th>
-                <th class="text-end" *ngIf="counted.indirect">ผลประโยชน์ทางอ้อม</th>
-                <th class="text-end">ต้นทุน</th>
-                <th class="text-end">NCF</th>
-                <th class="text-end pe-4">กระแสเงินสดสะสม</th>
+                <th class="ps-4">เดือน</th>
+                <th class="text-end">ได้รับ</th>
+                <th class="text-end">จ่าย</th>
+                <th class="text-end">คงเหลือเดือนนี้</th>
+                <th class="text-end pe-4">เงินสะสม</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let m of analytics.monthly" [class.table-success]="shown?.paybackMonth === m.period">
-                <td class="ps-4 fw-bold">
-                  {{ m.period }}
-                  <i *ngIf="shown?.paybackMonth === m.period" class="bi bi-flag-fill text-success ms-1" title="เดือนที่คืนทุน"></i>
+              <tr *ngFor="let m of analytics.monthly">
+                <td class="ps-4">
+                  <span class="fw-bold">{{ m.period }}</span> <small class="text-muted">{{ monthName(m.period) }}</small>
                 </td>
-                <td class="text-end text-success" *ngIf="counted.direct">฿{{ m.estimated.direct | number:'1.0-0' }}</td>
-                <td class="text-end indirect-text" *ngIf="counted.indirect">฿{{ m.estimated.indirect | number:'1.0-0' }}</td>
-                <td class="text-end text-danger">฿{{ m.estimated.expense | number:'1.0-0' }}</td>
-                <td class="text-end fw-bold" [ngClass]="m.estimated.ncf >= 0 ? 'text-success' : 'text-danger'">
-                  ฿{{ m.estimated.ncf | number:'1.0-0' }}
-                </td>
+                <td class="text-end text-success">{{ m.estimated.revenue | baht }}</td>
+                <td class="text-end text-danger">{{ m.estimated.expense | baht }}</td>
+                <td class="text-end" [ngClass]="m.estimated.ncf >= 0 ? 'text-success' : 'text-danger'">{{ m.estimated.ncf | baht }}</td>
                 <td class="text-end fw-bold pe-4" [ngClass]="m.estimated.cumulative >= 0 ? 'text-dark' : 'text-danger'">
-                  ฿{{ m.estimated.cumulative | number:'1.0-0' }}
+                  {{ m.estimated.cumulative | baht }}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-      </div>
-
-      <!-- รายการที่บันทึกไว้ แยกตามแหล่ง — ส่วนประโยชน์ทางอ้อมเป็นตารางแจกแจง ปริมาณ × อัตรา -->
-      <div class="d-flex flex-column gap-4 mb-4">
-        <ng-container *ngFor="let s of sources">
-          <app-ledger-section-view *ngIf="showSection(s, savedRows)"
-            [source]="s" [rows]="savedRows[s]" [categories]="allCategories"
-            [counted]="isCounted(s)" phaseLabel="ประมาณการ"></app-ledger-section-view>
-        </ng-container>
       </div>
 
       <!-- CTA: บันทึกผลจริง (เจ้าของเท่านั้น) -->
@@ -179,7 +221,7 @@
         style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9)">
         <i class="bi bi-clipboard-data text-success" style="font-size:2.2rem"></i>
         <h5 class="fw-bold mt-2 mb-1">พร้อมบันทึกผลจริงแล้วหรือยัง?</h5>
-        <p class="text-muted mb-3">เมื่อโครงการเริ่มดำเนินการ บันทึกผลประโยชน์และต้นทุนจริงเพื่อเปรียบเทียบกับประมาณการ</p>
+        <p class="text-muted mb-3">เมื่อโครงการเริ่มดำเนินการ บันทึกผลจริงเพื่อเทียบกับแผน — ระบบเตรียมรายการตามแผนไว้ให้แล้ว</p>
         <div>
           <button [routerLink]="['/user/actual-report', project.project_id]" [queryParams]="{ mode: 'create' }"
             class="btn btn-brand rounded-pill px-4 py-2 fw-bold shadow-sm">
