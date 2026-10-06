@@ -72,6 +72,15 @@
    overflow:hidden/auto ไว้ตายตัว (สำหรับให้ sidebar คงที่ตอนใช้งานจริงบนจอ) พอสั่งพิมพ์
    เบราว์เซอร์เลยตัดเนื้อหาที่ยาวเกินจอเดียวทิ้งไปเหมือนแค่แคปหน้าจอ ต้องคลายทั้งหมดนี้เป็น
    auto/visible ตอนพิมพ์ ให้เนื้อหาไหลต่อเป็นหลายหน้ากระดาษได้ตามจริง */
+/* ROI เด่นบนการ์ดโครงการ (Dashboard / Community) */
+.roi-hero { background: rgba(25, 135, 84, 0.07); }
+.roi-hero.is-negative { background: rgba(220, 53, 69, 0.07); }
+.roi-hero-number { font-size: 2.1rem; font-weight: 800; line-height: 1.1; color: #198754; letter-spacing: -0.5px; }
+.roi-hero.is-negative .roi-hero-number { color: #dc3545; }
+
+/* ตัวเลขใหญ่บนการ์ดสรุปของ Dashboard */
+.stat-number { font-size: clamp(1.35rem, 2vw, 1.9rem); font-weight: 700; line-height: 1.2; }
+
 /* ป้ายสถานะโครงการ (ใช้ทั้งหน้า Projects, Dashboard และรายงาน) */
 .status-badge { font-weight: 600; }
 .status-badge.status-planning { background: #fff3cd; color: #997404; }

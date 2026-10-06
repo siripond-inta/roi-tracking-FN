@@ -2,7 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { RouterLink, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Project } from '../../models/roi-tracking-model';
+import { PROJECT_STATUS_HINTS, PROJECT_STATUS_LABELS, Project } from '../../models/roi-tracking-model';
+import { BahtPipe } from '../project.-report/shared/baht.pipe';
+import { PctPipe } from '../project.-report/shared/pct.pipe';
 import { ProjectService } from '../../services/project.service';
 import { ToastService } from '../../services/toast.service';
 import { timeout, catchError } from 'rxjs/operators';
@@ -11,7 +13,7 @@ import { of } from 'rxjs';
 @Component({
   selector: 'app-community',
   standalone: true,
-  imports: [RouterLink, RouterModule, CommonModule, FormsModule],
+  imports: [RouterLink, RouterModule, CommonModule, FormsModule, BahtPipe, PctPipe],
   templateUrl: './community.html',
   styleUrl: './community.css',
 })
@@ -19,6 +21,8 @@ export class Community implements OnInit {
   projectList: Project[] = [];
   searchTerm: string = '';
   isLoading = false;
+  readonly statusLabels = PROJECT_STATUS_LABELS;
+  readonly statusHints = PROJECT_STATUS_HINTS;
 
   constructor(
     private projectService: ProjectService,

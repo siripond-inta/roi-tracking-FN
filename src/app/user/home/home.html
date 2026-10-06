@@ -1,31 +1,27 @@
 <div class="container-fluid py-4">
-    <!-- หัวข้อหน้าย้ายไปอยู่ที่ header ด้านบนแล้ว (ระดับเดียวกับชื่อ user) -->
-
     <!-- Search + Create อยู่บนสุด -->
-    <div class="search-container shadow-sm border mb-5 p-3 bg-white rounded-4">
+    <div class="search-container shadow-sm border mb-4 p-3 bg-white rounded-4">
         <div class="row align-items-center g-2">
             <div class="col-md-4">
                 <div class="d-flex align-items-center border rounded-pill bg-light px-3" style="height: 48px;">
                     <i class="bi bi-search text-secondary"></i>
                     <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()"
                         class="form-control border-0 bg-transparent shadow-none ms-2"
-                        placeholder="Search projects...">
+                        placeholder="ค้นหาโครงการ...">
                 </div>
             </div>
             <div class="col"></div>
             <div class="col-auto d-flex gap-2">
-                
                 <!-- บัญชี viewer ดูได้อย่างเดียว ไม่ต้องโชว์ปุ่มที่กดแล้วจะโดนปฏิเสธ (FR01-2) -->
                 <button *ngIf="authService.canEditProjects()"
                     class="btn btn-add-project shadow-sm bg-success text-white border-0 px-4 rounded-pill fw-bold"
                     routerLink="/user/estimated-form1" style="height: 48px;">
-                    + Add New Project
+                    + สร้างโครงการใหม่
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- แสดงวงโหลดข้อมูลแบบสวยงามระหว่างดึงข้อมูลจาก database -->
     <div *ngIf="isLoading" class="d-flex flex-column justify-content-center align-items-center py-5 my-5">
         <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
             <span class="visually-hidden">กำลังโหลดข้อมูล...</span>
@@ -34,163 +30,197 @@
     </div>
 
     <div *ngIf="!isLoading">
-        <div class="row g-4 mb-5">
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card summary-card border-0 h-100 p-4 shadow-sm">
+        <!-- ─── ตัวเลขสรุปภาพรวม ───────────────────────────────────────────── -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-xl-3">
+                <div class="card summary-card border-0 h-100 p-3 p-md-4 shadow-sm">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <small class="text-muted fw-bold">TOTAL PROJECTS</small>
-                            <h2 class="fw-bold mt-2">{{ projects.length }}</h2>
-                            <small class="text-success"><i class="bi bi-graph-up-arrow"></i> Active tracking</small>
+                            <small class="text-muted fw-bold">โครงการทั้งหมด</small>
+                            <div class="stat-number mt-1">{{ projects.length }}</div>
+                            <small class="text-muted">มีผลจริงแล้ว {{ actualCount }} โครงการ</small>
                         </div>
-                        <div class="icon-box text-success fs-3"><i class="bi bi-folder"></i></div>
+                        <div class="icon-box text-success fs-3 d-none d-sm-flex"><i class="bi bi-folder"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-xl-3">
+                <div class="card summary-card border-0 h-100 p-3 p-md-4 shadow-sm">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted fw-bold">งบลงทุนรวม</small>
+                            <div class="stat-number mt-1">{{ totalBudget | baht:true }}</div>
+                            <small class="text-muted">ทุกโครงการ</small>
+                        </div>
+                        <div class="icon-box text-success fs-3 d-none d-sm-flex"><i class="bi bi-wallet2"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-xl-3">
+                <div class="card summary-card border-0 h-100 p-3 p-md-4 shadow-sm">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted fw-bold">ผลประโยชน์รวม</small>
+                            <div class="stat-number mt-1 text-success">{{ totalBenefits | baht:true }}</div>
+                            <small class="text-muted">โดยตรง {{ totalDirect | baht:true }} · ทางอ้อม {{ totalIndirect | baht:true }}</small>
+                        </div>
+                        <div class="icon-box text-success fs-3 d-none d-sm-flex"><i class="bi bi-piggy-bank"></i></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-xl-3">
+                <div class="card summary-card border-0 h-100 p-3 p-md-4 shadow-sm">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted fw-bold">ROI เฉลี่ย</small>
+                            <div class="stat-number mt-1" [ngClass]="averageROI >= 0 ? 'text-success' : 'text-danger'">{{ averageROI | number:'1.1-1' }}%</div>
+                            <small class="text-muted">คุ้มค่าตามเป้า {{ worthwhileCount }}/{{ projects.length }} โครงการ</small>
+                        </div>
+                        <div class="icon-box text-success fs-3 d-none d-sm-flex"><i class="bi bi-bar-chart"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4" *ngIf="projects.length > 0">
+            <!-- ─── กราฟ ROI แต่ละโครงการ ───────────────────────────────────────── -->
+            <div class="col-12 col-xl-7">
+                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                    <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div>
+                            <h6 class="fw-bold mb-1"><i class="bi bi-bar-chart-fill me-2 text-success"></i>ผลตอบแทน (ROI) ของแต่ละโครงการ</h6>
+                            <small class="text-muted">
+                                แท่งเทา = ตามแผน · แท่งสี = ผลจริง ·
+                                <strong>ยาวไปทางขวา = ผลตอบแทนสูง</strong>, ซ้ายของเส้น 0% = ขาดทุน
+                            </small>
+                        </div>
+                        <select class="form-select form-select-sm rounded-pill w-auto" [(ngModel)]="chartTopN" aria-label="จำนวนโครงการที่แสดง">
+                            <option *ngFor="let n of topNOptions" [ngValue]="n">แสดง {{ n }} โครงการ</option>
+                        </select>
+                    </div>
+                    <div class="card-body p-3">
+                        <div [style.height.px]="chartHeightPx">
+                            <canvas baseChart type="bar" [data]="roiChartData" [options]="roiChartOptions"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card summary-card border-0 h-100 p-4 shadow-sm">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <small class="text-muted fw-bold">TOTAL BUDGET</small>
-                            <h2 class="fw-bold mt-2">{{ totalBudget / 1000000 | number:'1.1-1' }}M <small
-                                    class="fs-6 fw-normal">THB</small></h2>
-                            <div class="mt-2">
-                                <div class="progress mb-1" style="height: 6px; width: 120px;">
-                                    <div class="progress-bar bg-success" [style.width.%]="budgetUtilization"></div>
-                                </div>
-                                <small class="text-muted">Utilization {{ budgetUtilization | number:'1.0-0' }}%</small>
+            <!-- ─── แผน vs ผลจริง ──────────────────────────────────────────────── -->
+            <div class="col-12 col-xl-5">
+                <div class="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+                    <div class="card-header bg-white py-3 px-4 border-bottom">
+                        <h6 class="fw-bold mb-1"><i class="bi bi-arrow-left-right me-2 text-success"></i>แผน vs ผลจริง</h6>
+                        <small class="text-muted">เทียบผลจริงกับแผนในช่วงเดือนเดียวกัน</small>
+                    </div>
+                    <div *ngIf="comparedProjects.length === 0" class="text-center text-muted py-5 px-4">
+                        <i class="bi bi-hourglass d-block fs-3 mb-2"></i>
+                        ยังไม่มีโครงการที่บันทึกผลจริง<br>
+                        <small>เมื่อบันทึก Actual แล้ว ผลเทียบกับแผนจะแสดงที่นี่</small>
+                    </div>
+                    <div class="list-group list-group-flush compare-list">
+                        <button type="button" *ngFor="let p of comparedProjects" (click)="goToProject(p)"
+                            class="list-group-item list-group-item-action px-4 py-3">
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                <div class="fw-bold text-dark text-truncate">{{ p.project_name }}</div>
+                                <span class="badge rounded-pill flex-shrink-0" [ngClass]="comparisonClass(planResult(p))">
+                                    <i class="bi" [ngClass]="comparisonIcon(planResult(p))"></i>
+                                    {{ comparisonLabel(planResult(p)) }}
+                                </span>
                             </div>
-                        </div>
-                        <div class="icon-box text-success fs-3"><i class="bi bi-wallet2"></i></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card summary-card border-0 h-100 p-4 shadow-sm">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <small class="text-muted fw-bold">TOTAL BENEFITS</small>
-                            <h2 class="fw-bold mt-2">{{ totalBenefits / 1000000 | number:'1.1-1' }}M <small
-                                    class="fs-6 fw-normal">THB</small></h2>
-                            <small class="text-muted">โดยตรง {{ totalDirect / 1000000 | number:'1.1-1' }}M · ทางอ้อม {{ totalIndirect / 1000000 | number:'1.1-1' }}M</small>
-                        </div>
-                        <div class="icon-box text-success fs-3"><i class="bi bi-piggy-bank"></i></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card summary-card border-0 h-100 p-4 shadow-sm">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <small class="text-muted fw-bold">AVERAGE ROI</small>
-                            <h2 class="fw-bold mt-2" [ngClass]="averageROI >= 0 ? 'text-success' : 'text-danger'">{{ averageROI | number:'1.1-1' }}%</h2>
-                            <small class="text-muted">คุ้มค่าตามเป้า {{ worthwhileCount }} จาก {{ projects.length }} โครงการ</small>
-                        </div>
-                        <div class="icon-box text-success fs-3"><i class="bi bi-bar-chart"></i></div>
+                            <div class="row g-2 small">
+                                <div class="col-6">
+                                    <div class="text-muted">ROI</div>
+                                    <span class="text-muted">แผน {{ (p.estimated_to_date_roi ?? p.estimated_roi) | pct:0:1 }}</span>
+                                    <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                    <strong [ngClass]="(p.actual_roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">จริง {{ p.actual_roi | pct:0:1 }}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-muted">ระยะคืนทุน</div>
+                                    <span class="text-muted">แผน {{ p.estimated_to_date_payback_months != null ? (p.estimated_to_date_payback_months | number:'1.1-1') + ' ด.' : '—' }}</span>
+                                    <i class="bi bi-arrow-right mx-1 text-muted"></i>
+                                    <strong>จริง {{ p.actual_payback_months != null ? (p.actual_payback_months | number:'1.1-1') + ' ด.' : '—' }}</strong>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                เทียบเดือนที่ 1–{{ p.last_actual_period }} (จาก {{ p.duration_months }} เดือน)
+                                <ng-container *ngIf="p.last_actual_period! < p.duration_months"> · ทั้งโครงการแผนไว้ ROI {{ p.estimated_roi | pct:0:1 }}</ng-container>
+                            </small>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- ─── FR05-1: กราฟแท่งเปรียบเทียบรายโครงการ ─────────────────────────────
-             มีตัวเลือกตัวชี้วัดและจำนวนอันดับที่แสดง เพื่อให้ใช้ได้เมื่อโครงการเยอะขึ้น -->
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4" *ngIf="projects.length > 0">
-            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
-                    <h6 class="fw-bold mb-0">
-                        <i class="bi bi-bar-chart-fill me-2 text-success"></i>เปรียบเทียบรายโครงการ
-                    </h6>
-                    <small class="text-muted">
-                        เรียงจากมากไปน้อย · แสดง {{ chartTopN }} อันดับแรกจาก {{ projects.length }} โครงการ
-                    </small>
-                </div>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <select class="form-select form-select-sm rounded-pill w-auto" [(ngModel)]="chartMetric">
-                        <option value="benefit">ผลประโยชน์ (โดยตรง + ทางอ้อม) vs ต้นทุน</option>
-                        <option value="roi">ROI (%)</option>
-                    </select>
-                    <select class="form-select form-select-sm rounded-pill w-auto" [(ngModel)]="chartTopN">
-                        <option *ngFor="let n of topNOptions" [ngValue]="n">{{ n }} อันดับแรก</option>
-                    </select>
-                </div>
-            </div>
-            <div class="card-body p-3">
-                <!-- ความสูงปรับตามจำนวนแท่ง และสลับเป็นแนวนอนเมื่อรายการเยอะ (ดู home.ts) -->
-                <div [style.height.px]="chartHeightPx">
-                    <canvas baseChart type="bar" [data]="benefitByProjectChartData"
-                        [options]="benefitByProjectChartOptions"></canvas>
-                </div>
-            </div>
-        </div>
-
+        <!-- ─── การ์ดโครงการ ─────────────────────────────────────────────────── -->
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">โครงการของฉัน</h6>
         <div class="row g-4">
-            <!-- visibleProjects = ผลการค้นหา แต่โหลดทีละชุด (ดู showMoreProjects ใน home.ts) -->
             <div class="col-12 col-md-6 col-lg-4" *ngFor="let prj of visibleProjects">
-
                 <div class="card project-card border-0 p-4 shadow-sm h-100 rounded-4" role="button"
                     (click)="goToProject(prj)" style="cursor:pointer;">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
                         <h5 class="fw-bold mb-0 text-dark">{{ prj.project_name }}</h5>
-                        <span *ngIf="prj.project_status" class="badge rounded-pill px-3 py-2 status-badge"
-                            [ngClass]="'status-' + prj.project_status">
+                        <span *ngIf="prj.project_status" class="badge rounded-pill px-3 py-2 status-badge flex-shrink-0"
+                            [ngClass]="'status-' + prj.project_status" [title]="statusHints[prj.project_status]">
                             {{ statusLabels[prj.project_status] }}
                         </span>
                     </div>
-
-                    <div class="mb-4">
-                        <span class="badge bg-light text-secondary border me-1">{{ prj.project_type || 'ไม่ระบุประเภท' }}</span>
-                        <span class="badge bg-light text-secondary border">#ID-{{ prj.project_id }}</span>
+                    <div class="mb-3">
+                        <span class="badge bg-light text-secondary border">{{ prj.project_type || 'ไม่ระบุประเภท' }}</span>
                     </div>
 
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between small mb-1">
-                            <span class="text-muted">ต้นทุนเทียบงบ ({{ prj.summary_phase === 'Actual' ? 'จริง' : 'แผน' }})</span>
-                            <span class="fw-bold">{{ getProjectBudgetUtilization(prj) | number:'1.0-0' }}%</span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-success"
-                                [style.width.%]="getProjectBudgetUtilization(prj)">
+                    <!-- ROI เป็นตัวเลขหลักของการ์ด -->
+                    <div class="roi-hero rounded-4 p-3 mb-3" [class.is-negative]="(prj.roi ?? 0) < 0">
+                        <div class="d-flex justify-content-between align-items-end">
+                            <div>
+                                <small class="text-muted d-block">ROI {{ prj.summary_phase === 'Actual' ? 'ผลจริง' : 'ตามแผน' }}</small>
+                                <span class="roi-hero-number">{{ prj.roi | pct }}</span>
+                            </div>
+                            <div class="text-end">
+                                <span *ngIf="prj.is_worthwhile !== null && prj.is_worthwhile !== undefined" class="badge rounded-pill"
+                                    [ngClass]="prj.is_worthwhile ? 'bg-success' : 'bg-danger'">
+                                    {{ prj.worthwhile_basis === 'projected' ? 'แนวโน้ม' : '' }}{{ prj.is_worthwhile ? 'คุ้มค่า' : 'ไม่คุ้มค่า' }}
+                                </span>
+                                <small *ngIf="prj.target_roi_percent != null" class="text-muted d-block mt-1">เป้า {{ prj.target_roi_percent }}%</small>
+                                <small *ngIf="prj.worthwhile_basis === 'projected'" class="text-muted d-block" title="ผลจริงถึงเดือนล่าสุด + แผนของเดือนที่เหลือ">คาดการณ์ทั้งโครงการ {{ prj.projected_roi | pct }}</small>
                             </div>
                         </div>
                     </div>
 
-                    <div class="row text-center border-top pt-3 mt-auto">
+                    <div class="row text-center g-0 mt-auto">
                         <div class="col-6 border-end">
-                            <small class="text-muted d-block">BUDGET</small>
-                            <strong class="text-dark">{{ prj.initial_budget | number }}</strong>
+                            <small class="text-muted d-block">งบลงทุน</small>
+                            <strong class="text-dark">{{ prj.initial_budget | baht:true }}</strong>
                         </div>
                         <div class="col-6">
-                            <small class="text-muted d-block">ROI {{ prj.summary_phase === 'Actual' ? '(จริง)' : '(แผน)' }}</small>
-                            <strong [ngClass]="(prj.roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">{{ (prj.roi ?? 0) | number:'1.1-1' }}%</strong>
-                            <small *ngIf="prj.is_worthwhile !== null && prj.is_worthwhile !== undefined" class="d-block"
-                                [ngClass]="prj.is_worthwhile ? 'text-success' : 'text-danger'">
-                                {{ prj.is_worthwhile ? 'คุ้มค่า' : 'ไม่คุ้มค่า' }}
-                            </small>
+                            <small class="text-muted d-block">ระยะคืนทุน</small>
+                            <strong class="text-dark">{{ prj.payback_months != null ? (prj.payback_months | number:'1.1-1') + ' เดือน' : '—' }}</strong>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3">
-                        <small class="text-muted">Updated {{ prj.created_at | date:'shortDate' }}</small>
-                        <!-- บันทึกผลจริงที่หน้ารายงาน Actual โดยตรง — ที่นั่นกรอกแยกรายเดือนได้ (FR03-2)
-                             และรองรับการตีมูลค่าประโยชน์ทางอ้อมแบบ ปริมาณ × อัตรา (FR03-4) -->
+                    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                        <small class="text-muted">สร้างเมื่อ {{ prj.created_at | date:'d MMM yy' }}</small>
+                        <!-- บันทึกผลจริงที่หน้ารายงาน Actual โดยตรง -->
                         <button [routerLink]="['/user/actual-report', prj.project_id]"
                                 [queryParams]="{ mode: 'create' }"
                                 (click)="$event.stopPropagation()"
                                 class="btn btn-outline-success btn-sm rounded-pill px-3"
                                 *ngIf="prj.status !== 'Actual' && authService.canEditProjects()">
-                            Record Actual
+                            บันทึกผลจริง
                         </button>
-                        <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2"
-                              *ngIf="prj.status === 'Actual'">
+                        <span class="small text-success" *ngIf="prj.status === 'Actual'">
                             <i class="bi bi-check-circle me-1"></i>มีผลจริงแล้ว
                         </span>
                     </div>
                 </div>
-
             </div>
+        </div>
+
+        <div *ngIf="filteredProjects.length === 0" class="text-center text-muted py-5">
+            <i class="bi bi-folder2-open d-block fs-2 mb-2"></i>
+            {{ projects.length === 0
+              ? (authService.canEditProjects() ? 'ยังไม่มีโครงการ — กด "สร้างโครงการใหม่" เพื่อเริ่มต้น' : 'ยังไม่มีโครงการ — บัญชี Viewer ดูโครงการสาธารณะได้ที่หน้า Community')
+              : 'ไม่พบโครงการที่ตรงกับคำค้นหา' }}
         </div>
 
         <!-- โหลดการ์ดเพิ่มทีละชุด แทนการ render ทุกโครงการพร้อมกัน -->
@@ -199,11 +229,6 @@
                 <i class="bi bi-arrow-down-circle me-2"></i>
                 แสดงเพิ่ม ({{ filteredProjects.length - visibleCardCount }} โครงการที่เหลือ)
             </button>
-        </div>
-        <div class="text-center mt-3" *ngIf="filteredProjects.length > 0">
-            <small class="text-muted">
-                แสดง {{ visibleProjects.length }} จาก {{ filteredProjects.length }} โครงการ
-            </small>
         </div>
     </div>
 </div>
