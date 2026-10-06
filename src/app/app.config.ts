@@ -3,7 +3,6 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChang
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
-import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './interceptors/auth.interceptor';
@@ -15,8 +14,8 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
 
-    // FR05-1: ลงทะเบียน Chart.js ให้ใช้กราฟเส้น/กราฟแท่งได้ทั้งแอป
-    provideCharts(withDefaultRegisterables()),
+    // FR05-1: Chart.js ลงทะเบียนที่ component ที่มีกราฟ (Home / Actual Report / CashflowChart) แทนระดับแอป
+    // เพื่อให้ Chart.js อยู่ใน lazy chunk ไม่ต้องโหลดตั้งแต่หน้า Login (ลดขนาด bundle แรก)
 
     // ใช้ XHR mode (ไม่ใช้ withFetch) เพื่อให้ Zone.js trigger Change Detection อัตโนมัติ
     // withFetch() ทำให้ response callback ทำงานนอก Zone → ต้องคลิกก่อนข้อมูลถึงขึ้น
