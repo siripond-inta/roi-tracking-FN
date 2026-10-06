@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PROJECT_STATUS_LABELS, Project, ProjectStatus } from '../../models/roi-tracking-model';
+import { PROJECT_STATUS_HINTS, PROJECT_STATUS_LABELS, Project, ProjectStatus } from '../../models/roi-tracking-model';
 import { ProjectService } from '../../services/project.service';
 import { ProjectTypeService, ProjectType } from '../../services/project-type.service';
 import { ToastService } from '../../services/toast.service';
@@ -10,6 +10,7 @@ import { AuthService } from '../../services/auth.service';
 import { timeout, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import Swal from 'sweetalert2';
+import { PctPipe } from '../project.-report/shared/pct.pipe';
 
 // FR02-2: ฟอร์มแก้ไขข้อมูลพื้นฐานของโครงการ
 interface ProjectEditForm {
@@ -20,13 +21,14 @@ interface ProjectEditForm {
   initial_budget: number;
   target_roi_percent: number | null;
   project_status: ProjectStatus;
-  has_actual: boolean; // มีผลจริงแล้วกลับไป "กำลังวางแผน" ไม่ได้ / ยังไม่มีผลจริงปิดโครงการไม่ได้
+  has_actual: boolean; // มีผลจริงแล้วกลับไป Estimated ไม่ได้ / ยังไม่มีผลจริงปิดโครงการไม่ได้
+  original_status: ProjectStatus; // สถานะก่อนแก้ — Completed ล็อกค่าที่กระทบการคำนวณ
 }
 
 @Component({
   selector: 'app-projects',
   standalone: true,
-  imports: [RouterLink, RouterModule, CommonModule, FormsModule],
+  imports: [RouterLink, RouterModule, CommonModule, FormsModule, PctPipe],
   templateUrl: './projects.html',
   styleUrl: './projects.css',
 })
@@ -42,10 +44,11 @@ export class Projects implements OnInit {
   editForm: ProjectEditForm = {
     project_id: 0, project_name: '', project_type_id: null,
     duration_months: 12, initial_budget: 0, target_roi_percent: null,
-    project_status: 'planning', has_actual: false
+    project_status: 'planning', has_actual: false, original_status: 'planning'
   };
 
   readonly statusLabels = PROJECT_STATUS_LABELS;
+  readonly statusHints = PROJECT_STATUS_HINTS;
   readonly editableStatuses: ProjectStatus[] = ['planning', 'in_progress', 'completed'];
 
   // ─── ตัวกรอง (ปุ่ม filter) — ประเภทโครงการมาจาก database, สถานะคือค่าที่ระบบรองรับ ───────
@@ -69,10 +72,16 @@ export class Projects implements OnInit {
     this.pageIndex = 0;
   }
 
+  // โครงการ Completed ที่ยังคงสถานะเดิม: ห้ามเปลี่ยนประเภท/ระยะเวลา/เป้า ROI (ตัวเลขถูกล็อก — backend ตรวจซ้ำ)
+  get editLocked(): boolean {
+    return this.editForm.original_status === 'completed' && this.editForm.project_status === 'completed';
+  }
+
   // สถานะที่เลือกได้ในฟอร์มแก้ไข — กฎเดียวกับ backend (backend ตรวจซ้ำอีกชั้น)
   statusDisabled(status: ProjectStatus): boolean {
     if (status === 'planning') return this.editForm.has_actual;
-    if (status === 'completed') return !this.editForm.has_actual;
+    // Actual/Completed ต้องมีผลจริงก่อน (Actual ระบบตั้งให้เองเมื่อบันทึกผลจริงครั้งแรก)
+    if (status === 'completed' || status === 'in_progress') return !this.editForm.has_actual;
     return false;
   }
 
@@ -101,7 +110,8 @@ export class Projects implements OnInit {
       initial_budget: prj.initial_budget,
       target_roi_percent: prj.target_roi_percent ?? null,
       project_status: prj.project_status ?? 'planning',
-      has_actual: prj.status === 'Actual'
+      has_actual: prj.status === 'Actual',
+      original_status: prj.project_status ?? 'planning'
     };
     this.showEditForm = true;
   }
@@ -191,7 +201,7 @@ export class Projects implements OnInit {
     const header = [
       'รหัส', 'ชื่อโครงการ', 'ประเภท', 'สถานะ', 'ระยะเวลา (เดือน)', 'งบลงทุนเริ่มต้น',
       'ข้อมูลที่ใช้', 'รายได้โดยตรง', 'ผลประโยชน์ทางอ้อม', 'ผลประโยชน์รวม', 'ต้นทุนรวม',
-      'ผลประโยชน์สุทธิ', 'ROI (%)', 'คืนทุนเดือนที่', 'เป้าหมาย ROI (%)', 'ความคุ้มค่า',
+      'ผลประโยชน์สุทธิ', 'ROI (%)', 'ระยะคืนทุน (เดือน)', 'เป้าหมาย ROI (%)', 'ความคุ้มค่า',
     ];
     const rows = this.filteredProjects.map((p) => [
       `PRJ-${p.project_id}`,
@@ -206,8 +216,8 @@ export class Projects implements OnInit {
       p.total_benefit ?? 0,
       p.total_cost ?? 0,
       p.net_profit ?? 0,
-      Number(p.roi ?? 0).toFixed(2),
-      p.payback_month ?? '',
+      p.roi != null ? Number(p.roi).toFixed(2) : '',
+      p.payback_months != null ? Number(p.payback_months).toFixed(1) : '',
       p.target_roi_percent ?? '',
       p.is_worthwhile == null ? '' : p.is_worthwhile ? 'คุ้มค่า' : 'ไม่คุ้มค่า',
     ]);

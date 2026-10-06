@@ -117,7 +117,7 @@
                 </div>
                 <div>
                   <div class="fw-bold text-dark">{{ prj.project_name }}</div>
-                  <small class="text-muted">ID: PRJ-2026-{{ prj.project_id }}</small>
+                  <small class="text-muted">ID: PRJ-{{ prj.project_id }}</small>
                 </div>
               </div>
             </td>
@@ -137,7 +137,7 @@
 
             <td class="text-end text-nowrap">
               <span class="fw-bold" [ngClass]="(prj.roi ?? 0) >= 0 ? 'text-success' : 'text-danger'">
-                {{ (prj.roi ?? 0) | number:'1.1-1' }}%
+                {{ prj.roi | pct }}
               </span>
               <small class="d-block text-muted">{{ prj.summary_phase === 'Actual' ? 'ผลจริง' : 'ประมาณการ' }}</small>
             </td>
@@ -218,14 +218,14 @@
       <div class="row g-3 mb-3">
         <div class="col-md-6">
           <label class="form-label small fw-bold text-muted text-uppercase">ประเภทโครงการ</label>
-          <select class="form-select rounded-3" [(ngModel)]="editForm.project_type_id" name="editType">
+          <select class="form-select rounded-3" [(ngModel)]="editForm.project_type_id" name="editType" [disabled]="editLocked">
             <option [ngValue]="null" disabled>เลือกประเภท...</option>
             <option *ngFor="let t of projectTypes" [ngValue]="t.type_id">{{ t.type_name }}</option>
           </select>
         </div>
         <div class="col-md-6">
           <label class="form-label small fw-bold text-muted text-uppercase">ระยะเวลา (เดือน)</label>
-          <input type="number" min="1" class="form-control rounded-3" [(ngModel)]="editForm.duration_months" name="editDuration">
+          <input type="number" min="1" class="form-control rounded-3" [(ngModel)]="editForm.duration_months" name="editDuration" [disabled]="editLocked">
         </div>
       </div>
 
@@ -233,11 +233,11 @@
         <label class="form-label small fw-bold text-muted text-uppercase">สถานะโครงการ</label>
         <select class="form-select rounded-3" [(ngModel)]="editForm.project_status" name="editStatus">
           <option *ngFor="let s of editableStatuses" [value]="s" [disabled]="statusDisabled(s)">
-            {{ statusLabels[s] }}
+            {{ statusLabels[s] }} — {{ statusHints[s] }}
           </option>
         </select>
         <small class="text-muted">
-          บันทึกผลจริงครั้งแรกจะเปลี่ยนเป็น "กำลังดำเนินการ" อัตโนมัติ · "สิ้นสุดโครงการ" ต้องมีผลจริงแล้ว และจะล็อกไม่ให้แก้ข้อมูล
+          บันทึกผลจริงครั้งแรกจะเปลี่ยนเป็น Actual อัตโนมัติ · Completed ต้องมีผลจริงแล้ว และจะล็อกไม่ให้แก้ข้อมูล
         </small>
       </div>
 
@@ -249,9 +249,12 @@
         <div class="col-md-6">
           <label class="form-label small fw-bold text-muted text-uppercase">เป้าหมาย ROI (%)</label>
           <input type="number" min="0" step="0.01" class="form-control rounded-3 text-end"
-            [(ngModel)]="editForm.target_roi_percent" name="editTargetRoi" placeholder="เช่น 20">
+            [(ngModel)]="editForm.target_roi_percent" name="editTargetRoi" placeholder="เช่น 20" [disabled]="editLocked">
         </div>
       </div>
+      <p *ngIf="editLocked" class="small text-muted">
+        <i class="bi bi-lock-fill me-1"></i>โครงการ Completed ล็อกประเภท ระยะเวลา และเป้า ROI ไว้ — เปลี่ยนสถานะกลับเป็น Actual ก่อนถ้าต้องการแก้
+      </p>
 
       <div class="d-flex justify-content-end gap-2">
         <button class="btn btn-outline-secondary rounded-pill px-4" (click)="closeEdit()" [disabled]="isSavingEdit">
