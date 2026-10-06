@@ -73,8 +73,22 @@ src/app/
 
 ```bash
 npx ng build   # output in dist/
-npx ng test    # unit tests (Vitest)
 ```
+
+| Level | Tool | Files | Command | Result file |
+|---|---|---|---|---|
+| Unit | Vitest (Angular unit-test builder) | `src/**/*.spec.ts` | `npm test` | — |
+| Unit with report | Vitest | same | `npm run test:report` | `test-reports/frontend/unit/` (open with `npm run test:report:open`), coverage in `test-reports/frontend/unit/coverage/` |
+| E2E | Cypress | `cypress/e2e/uat/*.cy.js` | `npm run test:e2e` (or `npm run test:e2e:open` to watch) | `test-reports/e2e/index.html` (+ screenshots) |
+| User acceptance | Cypress + generator | `cypress/uat/uat-cases.js` (cases, steps, expected results) | `npm run test:uat` | `test-reports/uat/UAT-report.html`, `UAT-report.md`, `evidence/*.png` |
+
+- E2E/UAT tests need the backend (`npm run dev`, with `npm run db:seed` demo accounts) and the
+  frontend (`npm start`) running. They create their own test data and delete it at the end.
+- Each UAT case maps to a requirement (FR01–FR07). `npm run test:uat` runs Cypress and then builds the
+  UAT document with the actual result filled in — failed cases are recorded in the document too.
+- The Vitest HTML report loads its data over HTTP, so open it with `npm run test:report:open`
+  rather than double-clicking `index.html`.
+- `test-reports/` is generated and git-ignored.
 
 ## Running with Docker
 
