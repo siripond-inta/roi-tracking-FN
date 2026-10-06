@@ -18,6 +18,7 @@ export interface Category {
   // FR03-4: หมวดที่ตีมูลค่าจาก "ปริมาณ × อัตรา" จะมีชื่อหน่วยทั้งคู่ (null = กรอกยอดเงินตรงๆ)
   unit_label: string | null;
   rate_label: string | null;
+  allow_custom_name: boolean; // หมวด "อื่นๆ" — ผู้ใช้พิมพ์ชื่อรายการเองตอนกรอก
 }
 
 export interface EntryType {
@@ -39,7 +40,12 @@ export class CategoryService {
 
   getCategories(): Observable<Category[]> {
     return this.http.get<ApiResponse<Category[]>>(this.API_URL).pipe(
-      map(res => (res.data || []).map(c => ({ ...c, is_inflow: !!c.is_inflow, usage_count: Number(c.usage_count || 0) })))
+      map(res => (res.data || []).map(c => ({
+        ...c,
+        is_inflow: !!c.is_inflow,
+        allow_custom_name: !!c.allow_custom_name,
+        usage_count: Number(c.usage_count || 0),
+      })))
     );
   }
 
@@ -56,6 +62,7 @@ export class CategoryService {
     category_group: string;
     unit_label?: string | null;
     rate_label?: string | null;
+    allow_custom_name?: boolean;
   }): Observable<any> {
     return this.http.post(this.API_URL, category);
   }
@@ -67,6 +74,7 @@ export class CategoryService {
       category_group?: string;
       unit_label?: string | null;
       rate_label?: string | null;
+      allow_custom_name?: boolean;
     }
   ): Observable<any> {
     return this.http.put(`${this.API_URL}/${id}`, category);

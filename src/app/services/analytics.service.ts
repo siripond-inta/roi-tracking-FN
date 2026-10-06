@@ -30,8 +30,11 @@ export interface PhaseSummary {
   totalRevenue: number;
   totalExpense: number;
   netProfit: number;
-  roi: number;
-  paybackMonth: number | null;
+  roi: number | null; // null = ไม่มีต้นทุน คำนวณ ROI ไม่ได้
+  // ระยะคืนทุน (เดือน) = ต้นทุนรวม ÷ (ผลประโยชน์รวม ÷ จำนวนเดือน) — null = ยังไม่มีผลประโยชน์
+  paybackMonths: number | null;
+  // จุดคุ้มทุนจากกระแสเงินสดสะสม (เดือนที่เงินสะสมกลับมาเป็น 0) — null = ยังไม่คุ้มทุน
+  breakEvenMonth: number | null;
   directRevenue: number;
   indirectBenefit: number;
   indirectMonthlyAverage: number;
@@ -51,6 +54,7 @@ export interface CategoryBreakdown {
   estimated: number;
   actual: number;
   variance: number;
+  custom_name: string | null; // หมวด "อื่นๆ" — category_name คือชื่อที่ผู้ใช้พิมพ์
   estimatedToDate: number; // แผนเฉพาะเดือนที่มีผลจริงแล้ว (1..lastActualPeriod)
   varianceToDate: number;  // ผลจริง − แผนถึงเดือนเดียวกัน
 }
@@ -74,10 +78,18 @@ export interface ProjectAnalytics {
     countedSources: { direct: boolean; indirect: boolean };
     estimated: PhaseSummary;
     actual: PhaseSummary;
-    variance: { revenue: number; expense: number; netProfit: number; roi: number };
+    // แผนถึงเดือนเดียวกับผลจริงล่าสุด — ใช้เทียบกับผลจริงระหว่างที่โครงการยังไม่จบ
+    estimatedToDate: {
+      months: number; totalRevenue: number; totalExpense: number; netProfit: number; roi: number | null;
+      paybackMonths: number | null;
+    };
+    // คาดการณ์ทั้งโครงการ = ผลจริงถึงเดือนล่าสุด + แผนของเดือนที่เหลือ
+    projected: { totalRevenue: number; totalExpense: number; netProfit: number; roi: number | null };
+    variance: { revenue: number; expense: number; netProfit: number; roi: number | null };
     targetRoi: number | null;
-    roiForComparison: number;
-    worthwhileBasis: 'actual' | 'estimated';
+    roiForComparison: number | null;
+    // ฐานที่ใช้ตัดสินความคุ้มค่า: ยังไม่มีผลจริง / ผลจริงครบหรือปิดโครงการ / ผลจริงบางเดือน (คาดการณ์)
+    worthwhileBasis: 'actual' | 'estimated' | 'projected';
     isWorthwhile: boolean | null;
   };
   byCategory: CategoryBreakdown[];

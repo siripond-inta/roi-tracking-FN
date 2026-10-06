@@ -51,6 +51,7 @@ function normalizeProject(p: Project): Project {
     target_roi_percent: p.target_roi_percent != null ? Number(p.target_roi_percent) : null,
     is_public: !!p.is_public,
     is_worthwhile: p.is_worthwhile == null ? null : !!p.is_worthwhile,
+    has_actual: !!p.has_actual,
   };
 }
 
@@ -58,6 +59,7 @@ function normalizeProject(p: Project): Project {
 // (backend กระจายเป็นแถวรายเดือน กำหนดวันที่ และประเภทรายรับ/รายจ่ายจากหมวดหมู่ให้เอง)
 export interface LedgerInput {
   category_id: string;
+  custom_name?: string | null; // ชื่อรายการ เมื่อเลือกหมวด "อื่นๆ"
   period_from: number;
   period_to: number;
   total_value: number | null;
@@ -190,7 +192,7 @@ export class ProjectService {
     return this.http.put(`${this.API_URL}/${projectId}/ledgers/${path}`, { ledgers: items });
   }
 
-  // 10.6 เปลี่ยนสถานะโครงการ (กำลังวางแผน / กำลังดำเนินการ / สิ้นสุดโครงการ)
+  // 10.6 เปลี่ยนสถานะโครงการ (planning = Estimated / in_progress = Actual / completed = Completed)
   updateProjectStatus(projectId: number, status: string): Observable<any> {
     return this.http.put(`${this.API_URL}/${projectId}`, { status });
   }

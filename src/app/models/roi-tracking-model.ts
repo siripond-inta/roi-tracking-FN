@@ -46,19 +46,43 @@ export interface Project {
   indirect_benefit?: number;
   total_cost?: number;
   net_profit?: number;
-  roi?: number;
-  payback_month?: number | null;
+  roi?: number | null;            // null = ไม่มีต้นทุน คำนวณ ROI ไม่ได้
+  payback_months?: number | null; // ระยะคืนทุน (เดือน, มีทศนิยม) — สูตรเฉลี่ย
+  break_even_month?: number | null; // จุดคุ้มทุนจากเงินสะสม (null = ยังไม่คุ้มทุน)
   is_worthwhile?: boolean | null;
+  worthwhile_basis?: 'estimated' | 'actual' | 'projected';
+  projected_roi?: number | null;  // คาดการณ์ทั้งโครงการ = ผลจริง + แผนเดือนที่เหลือ
+  // แผน vs จริง (ใช้เปรียบเทียบบน Dashboard) — ค่า actual_* เป็น null ถ้ายังไม่มีผลจริง
+  has_actual?: boolean;
+  last_actual_period?: number;
+  estimated_roi?: number | null;
+  estimated_net_profit?: number;
+  estimated_payback_months?: number | null;
+  actual_roi?: number | null;
+  actual_net_profit?: number | null;
+  actual_payback_months?: number | null;
+  estimated_to_date_roi?: number | null;
+  estimated_to_date_payback_months?: number | null;
 }
 
 // REVENUE = นับเฉพาะรายได้โดยตรง, COST_SAVING = นับเฉพาะประโยชน์ทางอ้อม, MIXED = นับทั้งสองแบบ
 export type CalculationMethod = 'REVENUE' | 'COST_SAVING' | 'MIXED';
 export type ProjectStatus = 'planning' | 'in_progress' | 'completed' | 'archived';
 
+// ชื่อสถานะที่แสดงบนหน้าเว็บ (ภาษาอังกฤษตามช่วงของข้อมูล): วางแผน = Estimated,
+// มีผลจริงแล้ว = Actual, จบโครงการ = Completed
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  planning: 'กำลังวางแผน',
-  in_progress: 'กำลังดำเนินการ',
-  completed: 'สิ้นสุดโครงการ',
+  planning: 'Estimated',
+  in_progress: 'Actual',
+  completed: 'Completed',
+  archived: 'Archived',
+};
+
+// คำอธิบายสั้นๆ ของแต่ละสถานะ (tooltip / ฟอร์มแก้ไข)
+export const PROJECT_STATUS_HINTS: Record<ProjectStatus, string> = {
+  planning: 'วางแผน — กรอกประมาณการ ยังไม่มีผลจริง',
+  in_progress: 'กำลังดำเนินโครงการ — บันทึกผลจริงแล้ว',
+  completed: 'จบโครงการ — ล็อกข้อมูลไม่ให้แก้ไข',
   archived: 'เก็บถาวร',
 };
 
@@ -84,6 +108,8 @@ export interface ProjectLedger {
   is_inflow?: boolean;
   unit_label?: string | null;
   rate_label?: string | null;
+  allow_custom_name?: boolean | number; // หมวด "อื่นๆ" — ใช้ custom_name เป็นชื่อรายการ
+  custom_name?: string | null;   // ชื่อรายการที่ผู้ใช้พิมพ์เองเมื่อเลือกหมวด "อื่นๆ"
   unit_qty?: number | null;      // ประโยชน์ทางอ้อม: ปริมาณที่ลดได้ (ชม./ชุด/ครั้ง)
   unit_cost?: number | null;     // ประโยชน์ทางอ้อม: อัตราต่อหน่วย
   total_value: number;           // ยอดเงินรวม (= unit_qty × unit_cost ถ้าเป็นแบบปริมาณ)
